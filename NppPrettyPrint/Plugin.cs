@@ -4,6 +4,7 @@ using System.Text;
 using System.Windows.Forms;
 using NppPluginNET;
 using Formatters;
+using Converters;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
@@ -28,7 +29,9 @@ namespace NppPrettyPrint
             ValidateJson,
             PrettyXml,
             MiniXml,
-            ValidateXml
+            ValidateXml,
+            b64GzipString,
+            b64GzipPayload
         }
 
         internal struct BufferInfo
@@ -94,10 +97,13 @@ namespace NppPrettyPrint
             PluginBase.SetCommand(5, "Xml: Minify", formatMiniXmlMenu);
             PluginBase.SetCommand(6, "Xml: Validate", validateXMLMenu);
             PluginBase.SetCommand(7, "---", null);
-            PluginBase.SetCommand(8, "Detect Indentation", detectMenu);
-            PluginBase.SetCommand(9, "Set Tabs", setTabsMenu);
-            PluginBase.SetCommand(10, "Set Spaces", setSpacesMenu);
-            autodetectCmdId = 11;
+            PluginBase.SetCommand(8, "Base64/Gzip -> String", b64GzipStringMenu);
+            PluginBase.SetCommand(9, "String -> Base64/Gzip", b64GzipPayloadMenu);
+            PluginBase.SetCommand(10, "---", null);
+            PluginBase.SetCommand(11, "Detect Indentation", detectMenu);
+            PluginBase.SetCommand(12, "Set Tabs", setTabsMenu);
+            PluginBase.SetCommand(13, "Set Spaces", setSpacesMenu);
+            autodetectCmdId = 14;
             PluginBase.SetCommand(autodetectCmdId, "Enable Autodetect", autodetectEnableMenu, enableAutoDetect);
             //PluginBase.SetCommand(1, "Pretty Json: Format", prettyJson, new ShortcutKey(false, false, false, Keys.None));
         }
@@ -147,6 +153,16 @@ namespace NppPrettyPrint
         internal static void validateXMLMenu()
         {
             formatData(FormatType.ValidateXml);
+        }
+
+        internal static void b64GzipStringMenu()
+        {
+            formatData(FormatType.b64GzipString);
+        }
+
+        internal static void b64GzipPayloadMenu()
+        {
+            formatData(FormatType.b64GzipPayload);
         }
 
         internal static void detectMenu()
@@ -246,6 +262,14 @@ namespace NppPrettyPrint
                     XmlFormatter.validateXml(npText);
                     MessageBox.Show("XML successfully validated  :-)");
                     return;
+                }
+                else if (fType == FormatType.b64GzipString)
+                {
+                    npOut = Base64GzipConverter.ConvertToString(npText);
+                }
+                else if (fType == FormatType.b64GzipPayload)
+                {
+                    npOut = Base64GzipConverter.ConvertToPayload(npText);
                 }
                 else
                 {
