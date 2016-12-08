@@ -6,7 +6,7 @@ using NppPluginNET;
 using Formatters;
 using Converters;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
+using Configuration;
 
 namespace NppPrettyPrint
 {
@@ -15,7 +15,11 @@ namespace NppPrettyPrint
         #region " Fields "
         internal const string PluginName = "NppPrettyPrint";
         static string iniFilePath = null;
-        static bool enableAutoDetect = true;
+        static AutoSetting<BoolSetting, bool> enableAutoDetect = new AutoSetting<BoolSetting, bool>(new BoolSetting("enableAutoDetect"));
+        static AutoSetting<IntSetting, int> autodetectMinLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinLinesToRead"));
+        static AutoSetting<IntSetting, int> autodetectMaxLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxLinesToRead"));
+        static AutoSetting<IntSetting, int> autodetectMinWhitespaceLines = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinWhitespaceLines"));
+        static AutoSetting<IntSetting, int> autodetectMaxCharsToReadPerLine = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxCharsToReadPerLine"));
         static int autodetectCmdId = 0;
         //static Bitmap tbBmp = Properties.Resources.star;
         //static Bitmap tbBmp_tbTab = Properties.Resources.star_bmp;
@@ -87,7 +91,9 @@ namespace NppPrettyPrint
             if (!Directory.Exists(iniFilePath)) Directory.CreateDirectory(iniFilePath);
             iniFilePath = Path.Combine(iniFilePath, PluginName + ".ini");
 
-            enableAutoDetect = (Win32.GetPrivateProfileInt("Settings", "enableAutoDetect", 1, iniFilePath) != 0);
+            readSettings();
+            if (!File.Exists(iniFilePath))
+                writeSettings();
 
             PluginBase.SetCommand(0, "Json: Pretty", formatPrettyJsonMenu);
             PluginBase.SetCommand(1, "Json: Minify", formatMiniJsonMenu);
@@ -105,6 +111,8 @@ namespace NppPrettyPrint
             PluginBase.SetCommand(13, "Set Spaces", setSpacesMenu);
             autodetectCmdId = 14;
             PluginBase.SetCommand(autodetectCmdId, "Enable Autodetect", autodetectEnableMenu, enableAutoDetect);
+            PluginBase.SetCommand(15, "---", null);
+            PluginBase.SetCommand(16, "Settings...", settingsMenu);
             //PluginBase.SetCommand(1, "Pretty Json: Format", prettyJson, new ShortcutKey(false, false, false, Keys.None));
         }
 
@@ -120,7 +128,6 @@ namespace NppPrettyPrint
 
         internal static void PluginCleanUp()
         {
-            Win32.WritePrivateProfileString("Settings", "enableAutoDetect", enableAutoDetect ? "1" : "0", iniFilePath);
         }
         #endregion
 
@@ -196,8 +203,13 @@ namespace NppPrettyPrint
         internal static void autodetectEnableMenu()
         {
             enableAutoDetect = !enableAutoDetect;
-            Win32.CheckMenuItem(Win32.GetMenu(PluginBase.nppData._nppHandle), PluginBase._funcItems.Items[autodetectCmdId]._cmdID,
-                Win32.MF_BYCOMMAND | (enableAutoDetect ? Win32.MF_CHECKED : Win32.MF_UNCHECKED));
+            applySettings();
+            writeSettings();
+        }
+
+        internal static void settingsMenu()
+        {
+            Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_DOOPEN, 0, iniFilePath);
         }
         #endregion
 
@@ -309,6 +321,30 @@ namespace NppPrettyPrint
             return new ViewSettings() { tabWidth = tabWidth, useTabs = useTabs, eolMode = eolMode.str, isSelection = isSelection };
         }
 
+        internal static void readSettings()
+        {
+            enableAutoDetect.value = Win32.GetPrivateProfileInt("Settings", enableAutoDetect, 1, iniFilePath);
+            autodetectMinLinesToRead.value = Win32.GetPrivateProfileInt("Settings", autodetectMinLinesToRead, 10, iniFilePath);
+            autodetectMaxLinesToRead.value = Win32.GetPrivateProfileInt("Settings", autodetectMaxLinesToRead, 20, iniFilePath);
+            autodetectMinWhitespaceLines.value = Win32.GetPrivateProfileInt("Settings", autodetectMinWhitespaceLines, 5, iniFilePath);
+            autodetectMaxCharsToReadPerLine.value = Win32.GetPrivateProfileInt("Settings", autodetectMaxCharsToReadPerLine, 100, iniFilePath);
+        }
+
+        internal static void writeSettings()
+        {
+            Win32.WritePrivateProfileString("Settings", enableAutoDetect, enableAutoDetect.ValToString(), iniFilePath);
+            Win32.WritePrivateProfileString("Settings", autodetectMinLinesToRead, autodetectMinLinesToRead.ValToString(), iniFilePath);
+            Win32.WritePrivateProfileString("Settings", autodetectMaxLinesToRead, autodetectMaxLinesToRead.ValToString(), iniFilePath);
+            Win32.WritePrivateProfileString("Settings", autodetectMinWhitespaceLines, autodetectMinWhitespaceLines.ValToString(), iniFilePath);
+            Win32.WritePrivateProfileString("Settings", autodetectMaxCharsToReadPerLine, autodetectMaxCharsToReadPerLine.ValToString(), iniFilePath);
+        }
+
+        internal static void applySettings()
+        {
+            Win32.CheckMenuItem(Win32.GetMenu(PluginBase.nppData._nppHandle), PluginBase._funcItems.Items[autodetectCmdId]._cmdID,
+                Win32.MF_BYCOMMAND | (enableAutoDetect ? Win32.MF_CHECKED : Win32.MF_UNCHECKED));
+        }
+
         internal static BufferInfo getBufferInfo(int id, int useTabs = 0)
         {
             var path = new StringBuilder(Win32.MAX_PATH);
@@ -349,34 +385,39 @@ namespace NppPrettyPrint
                 return;
 
             int numLines = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETLINECOUNT, 0, 0);
-            if (numLines >= 10)
+            if (numLines >= autodetectMinLinesToRead)
             {
-                var sb = new StringBuilder();
-                int count = 0;
-                int tabs = 0;
-                int size;
-                string ws;
-                var re = new Regex(@"^\s+");
-                for (var i = 0; i < Math.Min(15, numLines); i++)
+                int wsLines = 0;
+                int tabLines = 0;
+                var ttf = new Sci_TextToFind(0, 0, @"^\s+");
+                for (var i = 0; i < Math.Min(autodetectMaxLinesToRead, numLines); i++)
                 {
-                    size = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_LINELENGTH, i, 0);
-                    sb.Clear();
-                    sb.EnsureCapacity(size);
-                    Win32.SendMessage(curScintilla, SciMsg.SCI_GETLINE, i, sb);
-                    ws = re.Match(sb.ToString()).Value;
-                    if (ws.Length > 0)
-                        count++;
+                    int startPos = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_POSITIONFROMLINE, i, 0);
+                    int endPos = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETLINEENDPOSITION, i, 0); // excl EOL chars
+                    int lineLen = endPos - startPos;
+                    if (lineLen > 0)
+                    {
+                        ttf.chrg = new Sci_CharacterRange(startPos, startPos + Math.Min(lineLen, autodetectMaxCharsToReadPerLine));
+                        int find = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_FINDTEXT, (int)(SciMsg.SCFIND_REGEXP | SciMsg.SCFIND_CXX11REGEX), ttf.NativePointer);
+                        if (find != -1)
+                        {
+                            wsLines++;
+                            var rgFind = ttf.chrgText;
+                            var tr = new Sci_TextRange(rgFind, rgFind.cpMax - rgFind.cpMin + 1);
+                            Win32.SendMessage(curScintilla, SciMsg.SCI_GETTEXTRANGE, 0, tr.NativePointer);
+                            if (tr.lpstrText.Contains("\t"))
+                                tabLines++;
 
-                    if (ws.Contains("\t"))
-                        tabs++;
+                            //MessageBox.Show(string.Format("Line: {3}\nFind start: {0}\nFind end: {1}\nFind len: {2}",
+                            //    rgFind.cpMin, rgFind.cpMax, rgFind.cpMax - rgFind.cpMin, i + 1));
+                        }
+                    }
                 }
-
-                //MessageBox.Show(string.Format("Lines: {0}, count: {1}, tabs: {2}\nFile: {3}", numLines, count, tabs, path));
-
-                if (count >= 5)
+                
+                if (wsLines >= autodetectMinWhitespaceLines)
                 {
                     buff = getBufferInfo(id);
-                    if (tabs >= 5)
+                    if (tabLines >= (wsLines - tabLines))
                         buff.useTabs = 1;
                     else
                         buff.useTabs = 0;
@@ -384,11 +425,20 @@ namespace NppPrettyPrint
                     fileCache[id] = buff;
                     setUseTabs(buff.useTabs);
                 }
+
+                //MessageBox.Show(string.Format("Lines: {0}, count: {1}, tabs: {2}\nFile: {3}", numLines, wsLines, tabLines, buff.path));
             }
         }
 
         internal static void fileSaved(int id)
         {
+            var buff = getBufferInfo(id);
+            if (string.Equals(Path.GetFullPath(buff.path), Path.GetFullPath(iniFilePath), StringComparison.OrdinalIgnoreCase))
+            {
+                readSettings();
+                applySettings();
+            }
+
             if (!enableAutoDetect)
                 return;
 
