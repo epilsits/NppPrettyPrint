@@ -8,43 +8,54 @@ namespace ijsonDotNet
     {
         public enum ItemType
         {
-            Map,
             MapItem,
-            Array,
-            ArrayItem,
+            ArrayItem
+        }
+
+        public enum ValueType
+        {
+            MapList,
+            ArrayList,
             Null,
             Boolean,
             String,
             Number
         }
 
-        public ItemList<Item> BuiltObject = null;
-        private delegate void ValueSetter(ItemType type, object value);
-        private Stack<ValueSetter> Container = new Stack<ValueSetter>();
-        
-        public interface IItemType
+        public enum ListType
         {
-            ItemType ItemType { get; }
+            Map,
+            Array
         }
 
-        public interface IItem : IItemType
+        public ItemList<Item> BuiltObject = null;
+        private delegate void ItemSetter(ValueType type, object value);
+        private Stack<ItemSetter> Container = new Stack<ItemSetter>();
+        
+        public interface IListType
         {
+            ListType ListType { get; }
+        }
+
+        public interface IItem
+        {
+            ItemType ItemType { get; }
             string Key { get; set; }
-            ItemType ValueType { get; set; }
+            ValueType ValueType { get; set; }
             object Value { get; set; }
         }
 
-        public abstract class ItemList<T> : List<T>, IItemType where T : Item
+        public abstract class ItemList<T> : List<T>, IListType where T : Item
         {
-            public abstract ItemType ItemType { get; }
+            public abstract ListType ListType { get; }
         }
 
         public class MapList : ItemList<Item>
         {
-            public override ItemType ItemType { get { return ItemType.Map; } }
+            public override ListType ListType { get { return ListType.Map; } }
             public string MapKey { get; set; }
 
-            public void MapItemSetter(ItemType type, object value)
+            public void MapItemSetter(ValueType type, object value)
             {
                 Add(new MapItem() { Key = MapKey, ValueType = type, Value = value });
             }
@@ -52,9 +63,9 @@ namespace ijsonDotNet
 
         public class ArrayList : ItemList<Item>
         {
-            public override ItemType ItemType { get { return ItemType.Array; } }
+            public override ListType ListType { get { return ListType.Array; } }
 
-            public void ArrayItemSetter(ItemType type, object value)
+            public void ArrayItemSetter(ValueType type, object value)
             {
                 Add(new ArrayItem() { ValueType = type, Value = value });
             }
@@ -65,7 +76,7 @@ namespace ijsonDotNet
             public abstract ItemType ItemType { get; }
             public abstract string Key { get; set; }
             public abstract object Value { get; set; }
-            public abstract ItemType ValueType { get; set; }
+            public abstract ValueType ValueType { get; set; }
             public abstract int CompareTo(object obj);
         }
 
@@ -73,7 +84,7 @@ namespace ijsonDotNet
         {
             public override ItemType ItemType { get { return ItemType.MapItem; } }
             public override string Key { get; set; }
-            public override ItemType ValueType { get; set; }
+            public override ValueType ValueType { get; set; }
             public override object Value { get; set; }
 
             public override int CompareTo(object obj)
@@ -94,7 +105,7 @@ namespace ijsonDotNet
 
             public override ItemType ItemType { get { return ItemType.ArrayItem; } }
             public override string Key { get; set; }
-            public override ItemType ValueType { get; set; }
+            public override ValueType ValueType { get; set; }
             public override object Value { get; set; }
 
             public override int CompareTo(object obj)
@@ -104,13 +115,13 @@ namespace ijsonDotNet
                 var item = obj as ArrayItem;
                 if (item == null) throw new ArgumentException("Object is not an ArrayItem");
 
-                if (item.ValueType == ItemType.Map || item.ValueType == ItemType.Array)
+                if (item.ValueType == ValueType.MapList || item.ValueType == ValueType.ArrayList)
                 {
                     return 0;
                 }
                 else
                 {
-                    if (ValueType == ItemType.Map || ValueType == ItemType.Array)
+                    if (ValueType == ValueType.MapList || ValueType == ValueType.ArrayList)
                     {
                         return 1;
                     }
@@ -126,7 +137,7 @@ namespace ijsonDotNet
 
         public IEnumerable<ijsonEvent2> ParseValue(Item item, bool sorted = false)
         {
-            if (item.ValueType == ItemType.Map || item.ValueType == ItemType.Array)
+            if (item.ValueType == ValueType.MapList || item.ValueType == ValueType.ArrayList)
             {
                 foreach (var evt in ParseObject((ItemList<Item>)item.Value, sorted))
                     yield return evt;
@@ -157,31 +168,31 @@ namespace ijsonDotNet
             if (sorted)
                 items.Sort();
 
-            if (items.ItemType == ItemType.Map)
+            if (items.ListType == ListType.Map)
                 yield return new ijsonEvent2() { Type = ijsonTokenType.StartMap, Value = null };
-            else if (items.ItemType == ItemType.Array)
+            else if (items.ListType == ListType.Array)
                 yield return new ijsonEvent2() { Type = ijsonTokenType.StartArray, Value = null };
             else
-                throw new JSONError(string.Format("Unexpected object type: {0}", items.ItemType.ToString()));
+                throw new JSONError(string.Format("Unexpected object type: {0}", items.ListType.ToString()));
 
             foreach (var item in items)
                 foreach (var evt in ParseItem(item, sorted))
                     yield return evt;
 
-            if (items.ItemType == ItemType.Map)
+            if (items.ListType == ListType.Map)
                 yield return new ijsonEvent2() { Type = ijsonTokenType.EndMap, Value = null };
-            else if (items.ItemType == ItemType.Array)
+            else if (items.ListType == ListType.Array)
                 yield return new ijsonEvent2() { Type = ijsonTokenType.EndArray, Value = null };
         }
 
-        private void InitialSetter(ItemType type, object list)
+        private void InitialSetter(ValueType type, object list)
         {
             BuiltObject = (ItemList<Item>)list;
         }
 
         public ObjectBuilder()
         {
-            Container.Push(new ValueSetter(InitialSetter));
+            Container.Push(new ItemSetter(InitialSetter));
         }
 
         public void BuildObject(ijsonEvent2 evt)
@@ -193,14 +204,14 @@ namespace ijsonDotNet
             else if (evt.Type == ijsonTokenType.StartMap)
             {
                 var mapList = new MapList();
-                Container.Peek()(ItemType.Map, mapList);
-                Container.Push(new ValueSetter(mapList.MapItemSetter));
+                Container.Peek()(ValueType.MapList, mapList);
+                Container.Push(new ItemSetter(mapList.MapItemSetter));
             }
             else if (evt.Type == ijsonTokenType.StartArray)
             {
                 var arrList = new ArrayList();
-                Container.Peek()(ItemType.Array, arrList);
-                Container.Push(new ValueSetter(arrList.ArrayItemSetter));
+                Container.Peek()(ValueType.ArrayList, arrList);
+                Container.Push(new ItemSetter(arrList.ArrayItemSetter));
             }
             else if (evt.Type == ijsonTokenType.EndMap || evt.Type == ijsonTokenType.EndArray)
             {
@@ -208,7 +219,7 @@ namespace ijsonDotNet
             }
             else
             {
-                Container.Peek()((ItemType)Enum.Parse(typeof(ItemType), evt.Type.ToString()), evt.Value);
+                Container.Peek()((ValueType)Enum.Parse(typeof(ValueType), evt.Type.ToString()), evt.Value);
             }
         }
 
