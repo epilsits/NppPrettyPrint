@@ -53,23 +53,23 @@ namespace NppPrettyPrint
             }
             else if (nc.nmhdr.code == (uint)NppMsg.NPPN_BUFFERACTIVATED)
             {
-                Plugin.onBufferActivated((int)nc.nmhdr.idFrom);
+                Plugin.OnBufferActivated((int)nc.nmhdr.idFrom);
             }
             else if (nc.nmhdr.code == (uint)NppMsg.NPPN_FILESAVED)
             {
-                Plugin.onFileSaved((int)nc.nmhdr.idFrom);
+                Plugin.OnFileSaved((int)nc.nmhdr.idFrom);
             }
             else if (nc.nmhdr.code == (uint)NppMsg.NPPN_FILECLOSED)
             {
-                Plugin.onFileClosed((int)nc.nmhdr.idFrom);
+                Plugin.OnFileClosed((int)nc.nmhdr.idFrom);
             }
             else if (nc.nmhdr.code == (uint)NppMsg.NPPN_LANGCHANGED)
             {
-                Plugin.onLangChanged((int)nc.nmhdr.idFrom);
+                Plugin.OnLangChanged((int)nc.nmhdr.idFrom);
             }
             else if (nc.nmhdr.code == (uint)NppMsg.NPPN_SHUTDOWN)
             {
-                Plugin.onNppShutdown();
+                Plugin.OnNppShutdown();
                 Marshal.FreeHGlobal(_ptrPluginName);
             }
         }

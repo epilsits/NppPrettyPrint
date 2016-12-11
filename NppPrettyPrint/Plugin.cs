@@ -14,13 +14,13 @@ namespace NppPrettyPrint
     {
         #region " Fields "
         internal const string PluginName = "NppPrettyPrint";
-        static string iniFilePath = null;
-        static AutoSetting<BoolSetting, bool> enableAutoDetect = new AutoSetting<BoolSetting, bool>(new BoolSetting("enableAutoDetect"));
-        static AutoSetting<IntSetting, int> autodetectMinLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinLinesToRead"));
-        static AutoSetting<IntSetting, int> autodetectMaxLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxLinesToRead"));
-        static AutoSetting<IntSetting, int> autodetectMinWhitespaceLines = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinWhitespaceLines"));
-        static AutoSetting<IntSetting, int> autodetectMaxCharsToReadPerLine = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxCharsToReadPerLine"));
-        static int autodetectCmdId = 0;
+        static string IniFilePath = null;
+        static AutoSetting<BoolSetting, bool> EnableAutoDetect = new AutoSetting<BoolSetting, bool>(new BoolSetting("enableAutoDetect"));
+        static AutoSetting<IntSetting, int> AutodetectMinLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinLinesToRead"));
+        static AutoSetting<IntSetting, int> AutodetectMaxLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxLinesToRead"));
+        static AutoSetting<IntSetting, int> AutodetectMinWhitespaceLines = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinWhitespaceLines"));
+        static AutoSetting<IntSetting, int> AutodetectMaxCharsToReadPerLine = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxCharsToReadPerLine"));
+        static int AutodetectCmdId = 0;
         //static Bitmap tbBmp = Properties.Resources.star;
         //static Bitmap tbBmp_tbTab = Properties.Resources.star_bmp;
         //static Icon tbIcon = null;
@@ -29,31 +29,32 @@ namespace NppPrettyPrint
         internal enum FormatType
         {
             PrettyJson,
+            PrettyJsonSorted,
             MiniJson,
             ValidateJson,
             PrettyXml,
             MiniXml,
             ValidateXml,
-            b64GzipString,
-            b64GzipPayload
+            B64GzipString,
+            B64GzipPayload
         }
 
         internal struct BufferInfo
         {
-            internal int id;
-            internal string path;
-            internal int useTabs;
+            internal int Id;
+            internal string Path;
+            internal int UseTabs;
         }
 
-        internal static Dictionary<int, BufferInfo> fileCache = new Dictionary<int, BufferInfo>();
+        internal static Dictionary<int, BufferInfo> FileCache = new Dictionary<int, BufferInfo>();
 
         public sealed class EolMode
         {
-            public readonly int value;
-            public readonly string str;
-            public readonly string name;
+            public readonly int Value;
+            public readonly string Str;
+            public readonly string Name;
 
-            private static readonly Dictionary<int, EolMode> instance = new Dictionary<int, EolMode>();
+            private static readonly Dictionary<int, EolMode> Instance = new Dictionary<int, EolMode>();
 
             public static readonly EolMode EOL_CRLF = new EolMode(0, "\r\n", "EOL_CRLF");
             public static readonly EolMode EOL_CR = new EolMode(1, "\r", "EOL_CR");
@@ -61,21 +62,21 @@ namespace NppPrettyPrint
 
             private EolMode(int value, string str, string name)
             {
-                this.value = value;
-                this.str = str;
-                this.name = name;
-                instance[value] = this;
+                this.Value = value;
+                this.Str = str;
+                this.Name = name;
+                Instance[value] = this;
             }
 
             public override string ToString()
             {
-                return name;
+                return Name;
             }
 
             public static explicit operator EolMode(int val)
             {
                 EolMode result;
-                if (instance.TryGetValue(val, out result))
+                if (Instance.TryGetValue(val, out result))
                     return result;
                 else
                     throw new InvalidCastException();
@@ -87,32 +88,35 @@ namespace NppPrettyPrint
         {
             StringBuilder sbIniFilePath = new StringBuilder(Win32.MAX_PATH);
             Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_GETPLUGINSCONFIGDIR, Win32.MAX_PATH, sbIniFilePath);
-            iniFilePath = sbIniFilePath.ToString();
-            if (!Directory.Exists(iniFilePath)) Directory.CreateDirectory(iniFilePath);
-            iniFilePath = Path.Combine(iniFilePath, PluginName + ".ini");
+            IniFilePath = sbIniFilePath.ToString();
+            if (!Directory.Exists(IniFilePath)) Directory.CreateDirectory(IniFilePath);
+            IniFilePath = Path.Combine(IniFilePath, PluginName + ".ini");
 
-            readSettings();
-            if (!File.Exists(iniFilePath))
-                writeSettings();
+            ReadSettings();
+            if (!File.Exists(IniFilePath))
+                WriteSettings();
 
-            PluginBase.SetCommand(0, "Json: Pretty", formatPrettyJsonMenu);
-            PluginBase.SetCommand(1, "Json: Minify", formatMiniJsonMenu);
-            PluginBase.SetCommand(2, "Json: Validate", validateJsonMenu);
-            PluginBase.SetCommand(3, "---", null);
-            PluginBase.SetCommand(4, "Xml: Pretty", formatPrettyXmlMenu);
-            PluginBase.SetCommand(5, "Xml: Minify", formatMiniXmlMenu);
-            PluginBase.SetCommand(6, "Xml: Validate", validateXMLMenu);
-            PluginBase.SetCommand(7, "---", null);
-            PluginBase.SetCommand(8, "Base64/Gzip -> String", b64GzipStringMenu);
-            PluginBase.SetCommand(9, "String -> Base64/Gzip", b64GzipPayloadMenu);
-            PluginBase.SetCommand(10, "---", null);
-            PluginBase.SetCommand(11, "Detect Indentation", detectMenu);
-            PluginBase.SetCommand(12, "Set Tabs", setTabsMenu);
-            PluginBase.SetCommand(13, "Set Spaces", setSpacesMenu);
-            autodetectCmdId = 14;
-            PluginBase.SetCommand(autodetectCmdId, "Enable Autodetect", autodetectEnableMenu, enableAutoDetect);
-            PluginBase.SetCommand(15, "---", null);
-            PluginBase.SetCommand(16, "Settings...", settingsMenu);
+            int cmdIdx = 0;
+
+            PluginBase.SetCommand(cmdIdx++, "Json: Pretty", FormatPrettyJsonMenu);
+            PluginBase.SetCommand(cmdIdx++, "Json: Pretty (sorted)", FormatPrettyJsonSortedMenu);
+            PluginBase.SetCommand(cmdIdx++, "Json: Minify", FormatMiniJsonMenu);
+            PluginBase.SetCommand(cmdIdx++, "Json: Validate", ValidateJsonMenu);
+            PluginBase.SetCommand(cmdIdx++, "---", null);
+            PluginBase.SetCommand(cmdIdx++, "Xml: Pretty", FormatPrettyXmlMenu);
+            PluginBase.SetCommand(cmdIdx++, "Xml: Minify", FormatMiniXmlMenu);
+            PluginBase.SetCommand(cmdIdx++, "Xml: Validate", ValidateXMLMenu);
+            PluginBase.SetCommand(cmdIdx++, "---", null);
+            PluginBase.SetCommand(cmdIdx++, "Base64/Gzip -> String", B64GzipStringMenu);
+            PluginBase.SetCommand(cmdIdx++, "String -> Base64/Gzip", B64GzipPayloadMenu);
+            PluginBase.SetCommand(cmdIdx++, "---", null);
+            PluginBase.SetCommand(cmdIdx++, "Detect Indentation", DetectMenu);
+            PluginBase.SetCommand(cmdIdx++, "Set Tabs", SetTabsMenu);
+            PluginBase.SetCommand(cmdIdx++, "Set Spaces", SetSpacesMenu);
+            AutodetectCmdId = cmdIdx++;
+            PluginBase.SetCommand(AutodetectCmdId, "Enable Autodetect", AutodetectEnableMenu, EnableAutoDetect);
+            PluginBase.SetCommand(cmdIdx++, "---", null);
+            PluginBase.SetCommand(cmdIdx++, "Settings...", SettingsMenu);
             //PluginBase.SetCommand(1, "Pretty Json: Format", prettyJson, new ShortcutKey(false, false, false, Keys.None));
         }
 
@@ -132,89 +136,94 @@ namespace NppPrettyPrint
         #endregion
 
         #region " Menu functions "
-        internal static void formatPrettyJsonMenu()
+        internal static void FormatPrettyJsonMenu()
         {
-            formatData(FormatType.PrettyJson);
+            FormatData(FormatType.PrettyJson);
         }
 
-        internal static void formatMiniJsonMenu()
+        internal static void FormatPrettyJsonSortedMenu()
         {
-            formatData(FormatType.MiniJson);
+            FormatData(FormatType.PrettyJsonSorted);
         }
 
-        internal static void validateJsonMenu()
+        internal static void FormatMiniJsonMenu()
         {
-            formatData(FormatType.ValidateJson);
+            FormatData(FormatType.MiniJson);
         }
 
-        internal static void formatPrettyXmlMenu()
+        internal static void ValidateJsonMenu()
         {
-            formatData(FormatType.PrettyXml);
+            FormatData(FormatType.ValidateJson);
         }
 
-        internal static void formatMiniXmlMenu()
+        internal static void FormatPrettyXmlMenu()
         {
-            formatData(FormatType.MiniXml);
+            FormatData(FormatType.PrettyXml);
         }
 
-        internal static void validateXMLMenu()
+        internal static void FormatMiniXmlMenu()
         {
-            formatData(FormatType.ValidateXml);
+            FormatData(FormatType.MiniXml);
         }
 
-        internal static void b64GzipStringMenu()
+        internal static void ValidateXMLMenu()
         {
-            formatData(FormatType.b64GzipString);
+            FormatData(FormatType.ValidateXml);
         }
 
-        internal static void b64GzipPayloadMenu()
+        internal static void B64GzipStringMenu()
         {
-            formatData(FormatType.b64GzipPayload);
+            FormatData(FormatType.B64GzipString);
         }
 
-        internal static void detectMenu()
+        internal static void B64GzipPayloadMenu()
         {
-            int id = getActiveBuffer();
-            removeFileFromCache(id);
-            guessIndentation(id, true);
+            FormatData(FormatType.B64GzipPayload);
+        }
 
-            if (fileCache.ContainsKey(id))
-                MessageBox.Show(string.Format("Set indentation settings to: {0}", (fileCache[id].useTabs == 1) ? "Tabs" : "Spaces"), "Info");
+        internal static void DetectMenu()
+        {
+            int id = GetActiveBuffer();
+            RemoveFileFromCache(id);
+            GuessIndentation(id, true);
+
+            if (FileCache.ContainsKey(id))
+                MessageBox.Show(string.Format("Set indentation settings to: {0}", (FileCache[id].UseTabs == 1) ? "Tabs" : "Spaces"), "Info");
             else
                 MessageBox.Show("Unable to determine indentation settings.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
-        internal static void setTabsMenu()
+        internal static void SetTabsMenu()
         {
-            int id = getActiveBuffer();
-            var buff = getBufferInfo(id, 1);
+            int id = GetActiveBuffer();
+            var buff = GetBufferInfo(id, 1);
             setUseTabs(1);
-            fileCache[id] = buff;
+            FileCache[id] = buff;
         }
 
-        internal static void setSpacesMenu()
+        internal static void SetSpacesMenu()
         {
-            int id = getActiveBuffer();
-            var buff = getBufferInfo(id, 0);
+            int id = GetActiveBuffer();
+            var buff = GetBufferInfo(id, 0);
             setUseTabs(0);
-            fileCache[id] = buff;
+            FileCache[id] = buff;
         }
 
-        internal static void autodetectEnableMenu()
+        internal static void AutodetectEnableMenu()
         {
-            enableAutoDetect = !enableAutoDetect;
-            applySettings();
-            writeSettings();
+            EnableAutoDetect = !EnableAutoDetect;
+            ApplySettings();
+            WriteSettings();
         }
 
-        internal static void settingsMenu()
+        internal static void SettingsMenu()
         {
-            Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_DOOPEN, 0, iniFilePath);
+            Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_DOOPEN, 0, IniFilePath);
         }
         #endregion
 
         #region " Worker Functions "
-        internal static void formatData(FormatType fType)
+        internal static void FormatData(FormatType fType)
         {
             StringBuilder npText;
             var curScintilla = PluginBase.GetCurrentScintilla();
@@ -245,41 +254,46 @@ namespace NppPrettyPrint
                 string npOut = "";
                 if (fType == FormatType.PrettyJson)
                 {
-                    npOut = JsonFormatter.prettyJson(npText, getViewSettings(isSel));
-                    setLangType((int)LangType.L_JSON);
+                    npOut = JsonFormatter.PrettyJson(npText, GetViewSettings(isSel));
+                    SetLangType((int)LangType.L_JSON);
+                }
+                else if (fType == FormatType.PrettyJsonSorted)
+                {
+                    npOut = JsonFormatter.PrettyJsonSorted(npText, GetViewSettings(isSel));
+                    SetLangType((int)LangType.L_JSON);
                 }
                 else if (fType == FormatType.MiniJson)
                 {
-                    npOut = JsonFormatter.miniJson(npText);
-                    setLangType((int)LangType.L_JSON);
+                    npOut = JsonFormatter.MiniJson(npText);
+                    SetLangType((int)LangType.L_JSON);
                 }
                 else if (fType == FormatType.ValidateJson)
                 {
-                    JsonFormatter.validateJson(npText);
+                    JsonFormatter.ValidateJson(npText);
                     MessageBox.Show("JSON successfully validated  :-)");
                     return;
                 }
                 else if (fType == FormatType.PrettyXml)
                 {
-                    npOut = XmlFormatter.prettyXml(npText, getViewSettings(isSel));
-                    setLangType((int)LangType.L_XML);
+                    npOut = XmlFormatter.PrettyXml(npText, GetViewSettings(isSel));
+                    SetLangType((int)LangType.L_XML);
                 }
                 else if (fType == FormatType.MiniXml)
                 {
-                    npOut = XmlFormatter.miniXml(npText, getViewSettings(isSel));
-                    setLangType((int)LangType.L_XML);
+                    npOut = XmlFormatter.MiniXml(npText, GetViewSettings(isSel));
+                    SetLangType((int)LangType.L_XML);
                 }
                 else if (fType == FormatType.ValidateXml)
                 {
-                    XmlFormatter.validateXml(npText);
+                    XmlFormatter.ValidateXml(npText);
                     MessageBox.Show("XML successfully validated  :-)");
                     return;
                 }
-                else if (fType == FormatType.b64GzipString)
+                else if (fType == FormatType.B64GzipString)
                 {
                     npOut = Base64GzipConverter.ConvertToString(npText);
                 }
-                else if (fType == FormatType.b64GzipPayload)
+                else if (fType == FormatType.B64GzipPayload)
                 {
                     npOut = Base64GzipConverter.ConvertToPayload(npText);
                 }
@@ -305,47 +319,47 @@ namespace NppPrettyPrint
         #endregion
 
         #region " Utility Functions "
-        internal static ViewSettings getViewSettings(bool isSelection = false)
+        internal static ViewSettings GetViewSettings(bool isSelection = false)
         {
             var curScintilla = PluginBase.GetCurrentScintilla();
             int tabWidth = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETTABWIDTH, 0, 0);
             var eolMode = (EolMode)(int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETEOLMODE, 0, 0);
 
-            int id = getActiveBuffer();
+            int id = GetActiveBuffer();
             bool useTabs;
-            if (fileCache.ContainsKey(id))
-                useTabs = Convert.ToBoolean(fileCache[id].useTabs);
+            if (FileCache.ContainsKey(id))
+                useTabs = Convert.ToBoolean(FileCache[id].UseTabs);
             else
                 useTabs = Convert.ToBoolean((int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETUSETABS, 0, 0));
 
-            return new ViewSettings() { tabWidth = tabWidth, useTabs = useTabs, eolMode = eolMode.str, isSelection = isSelection };
+            return new ViewSettings() { TabWidth = tabWidth, UseTabs = useTabs, EolMode = eolMode.Str, IsSelection = isSelection };
         }
 
-        internal static void readSettings()
+        internal static void ReadSettings()
         {
-            enableAutoDetect.value = Win32.GetPrivateProfileInt("Settings", enableAutoDetect, 1, iniFilePath);
-            autodetectMinLinesToRead.value = Win32.GetPrivateProfileInt("Settings", autodetectMinLinesToRead, 10, iniFilePath);
-            autodetectMaxLinesToRead.value = Win32.GetPrivateProfileInt("Settings", autodetectMaxLinesToRead, 20, iniFilePath);
-            autodetectMinWhitespaceLines.value = Win32.GetPrivateProfileInt("Settings", autodetectMinWhitespaceLines, 5, iniFilePath);
-            autodetectMaxCharsToReadPerLine.value = Win32.GetPrivateProfileInt("Settings", autodetectMaxCharsToReadPerLine, 100, iniFilePath);
+            EnableAutoDetect.Value = Win32.GetPrivateProfileInt("Settings", EnableAutoDetect, 1, IniFilePath);
+            AutodetectMinLinesToRead.Value = Win32.GetPrivateProfileInt("Settings", AutodetectMinLinesToRead, 10, IniFilePath);
+            AutodetectMaxLinesToRead.Value = Win32.GetPrivateProfileInt("Settings", AutodetectMaxLinesToRead, 20, IniFilePath);
+            AutodetectMinWhitespaceLines.Value = Win32.GetPrivateProfileInt("Settings", AutodetectMinWhitespaceLines, 5, IniFilePath);
+            AutodetectMaxCharsToReadPerLine.Value = Win32.GetPrivateProfileInt("Settings", AutodetectMaxCharsToReadPerLine, 100, IniFilePath);
         }
 
-        internal static void writeSettings()
+        internal static void WriteSettings()
         {
-            Win32.WritePrivateProfileString("Settings", enableAutoDetect, enableAutoDetect.ValToString(), iniFilePath);
-            Win32.WritePrivateProfileString("Settings", autodetectMinLinesToRead, autodetectMinLinesToRead.ValToString(), iniFilePath);
-            Win32.WritePrivateProfileString("Settings", autodetectMaxLinesToRead, autodetectMaxLinesToRead.ValToString(), iniFilePath);
-            Win32.WritePrivateProfileString("Settings", autodetectMinWhitespaceLines, autodetectMinWhitespaceLines.ValToString(), iniFilePath);
-            Win32.WritePrivateProfileString("Settings", autodetectMaxCharsToReadPerLine, autodetectMaxCharsToReadPerLine.ValToString(), iniFilePath);
+            Win32.WritePrivateProfileString("Settings", EnableAutoDetect, EnableAutoDetect.ValToString(), IniFilePath);
+            Win32.WritePrivateProfileString("Settings", AutodetectMinLinesToRead, AutodetectMinLinesToRead.ValToString(), IniFilePath);
+            Win32.WritePrivateProfileString("Settings", AutodetectMaxLinesToRead, AutodetectMaxLinesToRead.ValToString(), IniFilePath);
+            Win32.WritePrivateProfileString("Settings", AutodetectMinWhitespaceLines, AutodetectMinWhitespaceLines.ValToString(), IniFilePath);
+            Win32.WritePrivateProfileString("Settings", AutodetectMaxCharsToReadPerLine, AutodetectMaxCharsToReadPerLine.ValToString(), IniFilePath);
         }
 
-        internal static void applySettings()
+        internal static void ApplySettings()
         {
-            Win32.CheckMenuItem(Win32.GetMenu(PluginBase.nppData._nppHandle), PluginBase._funcItems.Items[autodetectCmdId]._cmdID,
-                Win32.MF_BYCOMMAND | (enableAutoDetect ? Win32.MF_CHECKED : Win32.MF_UNCHECKED));
+            Win32.CheckMenuItem(Win32.GetMenu(PluginBase.nppData._nppHandle), PluginBase._funcItems.Items[AutodetectCmdId]._cmdID,
+                Win32.MF_BYCOMMAND | (EnableAutoDetect ? Win32.MF_CHECKED : Win32.MF_UNCHECKED));
         }
 
-        internal static BufferInfo getBufferInfo(int id, int useTabs = 0)
+        internal static BufferInfo GetBufferInfo(int id, int useTabs = 0)
         {
             var path = new StringBuilder(Win32.MAX_PATH);
             if ((int)Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_GETFULLPATHFROMBUFFERID, id, path) == -1)
@@ -353,10 +367,10 @@ namespace NppPrettyPrint
                 throw new Exception("Invalid buffer ID.");
             }
 
-            return new BufferInfo() { id = id, path = path.ToString(), useTabs = useTabs };
+            return new BufferInfo() { Id = id, Path = path.ToString(), UseTabs = useTabs };
         }
 
-        internal static int getActiveBuffer()
+        internal static int GetActiveBuffer()
         {
             return (int)Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_GETCURRENTBUFFERID, 0, 0);
         }
@@ -366,38 +380,38 @@ namespace NppPrettyPrint
             Win32.SendMessage(PluginBase.GetCurrentScintilla(), SciMsg.SCI_SETUSETABS, useTabs, 0);
         }
 
-        internal static void setLangType(int langType)
+        internal static void SetLangType(int langType)
         {
             Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_SETCURRENTLANGTYPE, 0, langType);
         }
 
-        internal static void guessIndentation(int id, bool force = false)
+        internal static void GuessIndentation(int id, bool force = false)
         {
             var curScintilla = PluginBase.GetCurrentScintilla();
             BufferInfo buff;
-            if (fileCache.TryGetValue(id, out buff))
+            if (FileCache.TryGetValue(id, out buff))
             {
-                setUseTabs(buff.useTabs);
+                setUseTabs(buff.UseTabs);
                 return;
             }
 
-            if (!enableAutoDetect && !force)
+            if (!EnableAutoDetect && !force)
                 return;
 
             int numLines = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETLINECOUNT, 0, 0);
-            if (numLines >= autodetectMinLinesToRead)
+            if (numLines >= AutodetectMinLinesToRead)
             {
                 int wsLines = 0;
                 int tabLines = 0;
                 var ttf = new Sci_TextToFind(0, 0, @"^\s+");
-                for (var i = 0; i < Math.Min(autodetectMaxLinesToRead, numLines); i++)
+                for (var i = 0; i < Math.Min(AutodetectMaxLinesToRead, numLines); i++)
                 {
                     int startPos = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_POSITIONFROMLINE, i, 0);
                     int endPos = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETLINEENDPOSITION, i, 0); // excl EOL chars
                     int lineLen = endPos - startPos;
                     if (lineLen > 0)
                     {
-                        ttf.chrg = new Sci_CharacterRange(startPos, startPos + Math.Min(lineLen, autodetectMaxCharsToReadPerLine));
+                        ttf.chrg = new Sci_CharacterRange(startPos, startPos + Math.Min(lineLen, AutodetectMaxCharsToReadPerLine));
                         int find = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_FINDTEXT, (int)(SciMsg.SCFIND_REGEXP | SciMsg.SCFIND_CXX11REGEX), ttf.NativePointer);
                         if (find != -1)
                         {
@@ -414,69 +428,69 @@ namespace NppPrettyPrint
                     }
                 }
                 
-                if (wsLines >= autodetectMinWhitespaceLines)
+                if (wsLines >= AutodetectMinWhitespaceLines)
                 {
-                    buff = getBufferInfo(id);
+                    buff = GetBufferInfo(id);
                     if (tabLines >= (wsLines - tabLines))
-                        buff.useTabs = 1;
+                        buff.UseTabs = 1;
                     else
-                        buff.useTabs = 0;
+                        buff.UseTabs = 0;
 
-                    fileCache[id] = buff;
-                    setUseTabs(buff.useTabs);
+                    FileCache[id] = buff;
+                    setUseTabs(buff.UseTabs);
                 }
 
                 //MessageBox.Show(string.Format("Lines: {0}, count: {1}, tabs: {2}\nFile: {3}", numLines, wsLines, tabLines, buff.path));
             }
         }
 
-        internal static void fileSaved(int id)
+        internal static void FileSaved(int id)
         {
-            var buff = getBufferInfo(id);
-            if (string.Equals(Path.GetFullPath(buff.path), Path.GetFullPath(iniFilePath), StringComparison.OrdinalIgnoreCase))
+            var buff = GetBufferInfo(id);
+            if (string.Equals(Path.GetFullPath(buff.Path), Path.GetFullPath(IniFilePath), StringComparison.OrdinalIgnoreCase))
             {
-                readSettings();
-                applySettings();
+                ReadSettings();
+                ApplySettings();
             }
 
-            if (!enableAutoDetect)
+            if (!EnableAutoDetect)
                 return;
 
-            removeFileFromCache(id);
-            int activeBuf = getActiveBuffer();
+            RemoveFileFromCache(id);
+            int activeBuf = GetActiveBuffer();
             if (activeBuf == id)
-                guessIndentation(id);
+                GuessIndentation(id);
         }
 
-        internal static void removeFileFromCache(int id)
+        internal static void RemoveFileFromCache(int id)
         {
-            fileCache.Remove(id);
+            FileCache.Remove(id);
         }
         #endregion
 
         #region " Events "
-        internal static void onBufferActivated(int id)
+        internal static void OnBufferActivated(int id)
         {
-            guessIndentation(id);
+            GuessIndentation(id);
         }
 
-        internal static void onFileSaved(int id)
+        internal static void OnFileSaved(int id)
         {
-            fileSaved(id);
+            FileSaved(id);
         }
 
-        internal static void onFileClosed(int id)
+        internal static void OnFileClosed(int id)
         {
-            removeFileFromCache(id);
+            RemoveFileFromCache(id);
         }
 
-        internal static void onLangChanged(int id)
+        internal static void OnLangChanged(int id)
         {
-            if (fileCache.ContainsKey(id))
-                setUseTabs(fileCache[id].useTabs);
+            if (FileCache.ContainsKey(id))
+                setUseTabs(FileCache[id].UseTabs);
         }
 
-        internal static void onNppShutdown()
+        internal static void OnNppShutdown()
         {
             PluginCleanUp();
         }

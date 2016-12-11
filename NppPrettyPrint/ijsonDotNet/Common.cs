@@ -1,45 +1,39 @@
-﻿//using System;
-//using System.Collections;
-using System.Collections.Generic;
-//using System.Linq;
+﻿using System.Collections.Generic;
 using System.Text;
-//using System.Threading.Tasks;
-//using System.Text.RegularExpressions;
-//using System.IO;
 
 namespace ijsonDotNet
 {
     public class ijsonCommon
     {
-        public IEnumerable<ijsonEvent> parse(IEnumerable<ijsonEvent2> events)
+        public IEnumerable<ijsonEvent> Parse(IEnumerable<ijsonEvent2> events)
         {
             var path = new List<string>();
             string prefix;
             foreach (var evt in events)
             {
-                if (evt.type == ijsonTokenType.MapKey)
+                if (evt.Type == ijsonTokenType.MapKey)
                 {
                     prefix = (path.Count > 1) ? string.Join(".", path.GetRange(0, path.Count - 1)) : "";
-                    path[path.Count - 1] = evt.value.ToString();
+                    path[path.Count - 1] = evt.Value.ToString();
                 }
-                else if (evt.type == ijsonTokenType.StartMap)
+                else if (evt.Type == ijsonTokenType.StartMap)
                 {
                     prefix = string.Join(".", path);
                     path.Add(null);
                 }
-                else if (evt.type == ijsonTokenType.EndMap)
+                else if (evt.Type == ijsonTokenType.EndMap)
                 {
                     if (path.Count > 0)
                         path.RemoveAt(path.Count - 1);
 
                     prefix = string.Join(".", path);
                 }
-                else if (evt.type == ijsonTokenType.StartArray)
+                else if (evt.Type == ijsonTokenType.StartArray)
                 {
                     prefix = string.Join(".", path);
                     path.Add("item");
                 }
-                else if (evt.type == ijsonTokenType.EndArray)
+                else if (evt.Type == ijsonTokenType.EndArray)
                 {
                     if (path.Count > 0)
                         path.RemoveAt(path.Count - 1);
@@ -51,11 +45,11 @@ namespace ijsonDotNet
                     prefix = string.Join(".", path);
                 }
 
-                yield return new ijsonEvent { prefix = prefix, type = evt.type, value = evt.value };
+                yield return new ijsonEvent { Prefix = prefix, Type = evt.Type, Value = evt.Value };
             }
         }
 
-        public string pretty(IEnumerable<ijsonEvent> events, string indent_string = "\t", string eol_string = "\r\n")
+        public string Pretty(IEnumerable<ijsonEvent2> events, string indent_string = "\t", string eol_string = "\r\n")
         {
             string indent = "";
             int lenIndent = indent_string.Length;
@@ -64,7 +58,7 @@ namespace ijsonDotNet
             StringBuilder sOut = new StringBuilder();
             foreach (var evt in events)
             {
-                if (evt.type == ijsonTokenType.StartMap)
+                if (evt.Type == ijsonTokenType.StartMap)
                 {
                     if (prevType == ijsonTokenType.EndMap || prevType == ijsonTokenType.EndArray)
                     {
@@ -75,7 +69,7 @@ namespace ijsonDotNet
                     sOut.Append("{" + eol_string);
                     indent += indent_string;
                 }
-                else if (evt.type == ijsonTokenType.EndMap)
+                else if (evt.Type == ijsonTokenType.EndMap)
                 {
                     if (prevType == ijsonTokenType.StartMap)
                     {
@@ -91,7 +85,7 @@ namespace ijsonDotNet
                         sOut.Append(indent + "}," + eol_string);
                     }
                 }
-                else if (evt.type == ijsonTokenType.StartArray)
+                else if (evt.Type == ijsonTokenType.StartArray)
                 {
                     if (prevType == ijsonTokenType.EndMap || prevType == ijsonTokenType.EndArray)
                     {
@@ -102,7 +96,7 @@ namespace ijsonDotNet
                     sOut.Append("[");
                     indent += indent_string;
                 }
-                else if (evt.type == ijsonTokenType.EndArray)
+                else if (evt.Type == ijsonTokenType.EndArray)
                 {
                     if (prevType == ijsonTokenType.StartArray)
                     {
@@ -137,9 +131,9 @@ namespace ijsonDotNet
                         indent = indent.Remove(indent.Length - lenIndent);
                     }
                 }
-                else if (evt.type == ijsonTokenType.MapKey)
+                else if (evt.Type == ijsonTokenType.MapKey)
                 {
-                    sOut.Append(indent + "\"" + evt.value.ToString() + "\": ");
+                    sOut.Append(indent + "\"" + evt.Value.ToString() + "\": ");
                 }
                 else
                 {
@@ -149,21 +143,21 @@ namespace ijsonDotNet
                         sOut.Append(" ");
                     }
 
-                    if (evt.type == ijsonTokenType.Null)
+                    if (evt.Type == ijsonTokenType.Null)
                     {
                         sOut.Append("null,");
                     }
-                    else if (evt.type == ijsonTokenType.Boolean)
+                    else if (evt.Type == ijsonTokenType.Boolean)
                     {
-                        sOut.Append(evt.value.ToString().ToLower() + ",");
+                        sOut.Append(evt.Value.ToString().ToLower() + ",");
                     }
-                    else if (evt.type == ijsonTokenType.Number)
+                    else if (evt.Type == ijsonTokenType.Number)
                     {
-                        sOut.Append(evt.value.ToString() + ",");
+                        sOut.Append(evt.Value.ToString() + ",");
                     }
-                    else if (evt.type == ijsonTokenType.String)
+                    else if (evt.Type == ijsonTokenType.String)
                     {
-                        sOut.Append("\"" + evt.value.ToString() + "\",");
+                        sOut.Append("\"" + evt.Value.ToString() + "\",");
                     }
 
                     if (prevType == ijsonTokenType.MapKey)
@@ -172,58 +166,58 @@ namespace ijsonDotNet
                         sOut.Append(" ");
                 }
 
-                prevType = evt.type;
+                prevType = evt.Type;
             }
 
             sOut.Remove(sOut.Length - (lenEol + 1), (lenEol + 1));
             return sOut.ToString();
         }
 
-        public string minify(IEnumerable<ijsonEvent> events)
+        public string Minify(IEnumerable<ijsonEvent2> events)
         {
             ijsonTokenType prevType = ijsonTokenType.None;
             StringBuilder sOut = new StringBuilder();
             foreach (var evt in events)
             {
-                if (evt.type == ijsonTokenType.StartMap)
+                if (evt.Type == ijsonTokenType.StartMap)
                 {
                     sOut.Append("{");
                 }
-                else if (evt.type == ijsonTokenType.EndMap)
+                else if (evt.Type == ijsonTokenType.EndMap)
                 {
                     if (prevType != ijsonTokenType.StartMap)
                         sOut.Remove(sOut.Length - 1, 1);
 
                     sOut.Append("},");
                 }
-                else if (evt.type == ijsonTokenType.StartArray)
+                else if (evt.Type == ijsonTokenType.StartArray)
                 {
                     sOut.Append("[");
                 }
-                else if (evt.type == ijsonTokenType.EndArray)
+                else if (evt.Type == ijsonTokenType.EndArray)
                 {
                     if (prevType != ijsonTokenType.StartArray)
                         sOut.Remove(sOut.Length - 1, 1);
 
                     sOut.Append("],");
                 }
-                else if (evt.type == ijsonTokenType.MapKey)
+                else if (evt.Type == ijsonTokenType.MapKey)
                 {
-                    sOut.Append("\"" + evt.value.ToString() + "\":");
+                    sOut.Append("\"" + evt.Value.ToString() + "\":");
                 }
                 else
                 {
-                    if (evt.type == ijsonTokenType.Null)
+                    if (evt.Type == ijsonTokenType.Null)
                         sOut.Append("null,");
-                    else if (evt.type == ijsonTokenType.Boolean)
-                        sOut.Append(evt.value.ToString().ToLower() + ",");
-                    else if (evt.type == ijsonTokenType.Number)
-                        sOut.Append(evt.value.ToString() + ",");
-                    else if (evt.type == ijsonTokenType.String)
-                        sOut.Append("\"" + evt.value.ToString() + "\",");
+                    else if (evt.Type == ijsonTokenType.Boolean)
+                        sOut.Append(evt.Value.ToString().ToLower() + ",");
+                    else if (evt.Type == ijsonTokenType.Number)
+                        sOut.Append(evt.Value.ToString() + ",");
+                    else if (evt.Type == ijsonTokenType.String)
+                        sOut.Append("\"" + evt.Value.ToString() + "\",");
                 }
 
-                prevType = evt.type;
+                prevType = evt.Type;
             }
 
             sOut.Remove(sOut.Length - 1, 1);

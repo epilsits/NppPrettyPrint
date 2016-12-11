@@ -1,15 +1,13 @@
-﻿using System;
-
-namespace Configuration
+﻿namespace Configuration
 {
     public interface ISetting
     {
-        string name { get; set; }
+        string Name { get; set; }
     }
 
     public interface IValueSetting<T> : ISetting
     {
-        T value { get; set; }
+        T Value { get; set; }
         string ValToString();
         bool ValToBool();
         int ValToInt();
@@ -20,150 +18,150 @@ namespace Configuration
 
     public class IntSetting : IValueSetting<int>
     {
-        public string name { get; set; }
-        public int value { get; set; }
+        public string Name { get; set; }
+        public int Value { get; set; }
 
         public IntSetting() { }
 
         public IntSetting(string _name)
         {
-            name = _name;
+            Name = _name;
         }
 
         public IntSetting(string _name, int _value)
         {
-            name = _name;
-            value = _value;
+            Name = _name;
+            Value = _value;
         }
 
         public override string ToString()
         {
-            return name;
+            return Name;
         }
 
         public string ValToString()
         {
-            return value.ToString();
+            return Value.ToString();
         }
 
         public bool ValToBool()
         {
-            return ((value == 0) ? false : true);
+            return ((Value == 0) ? false : true);
         }
 
         public int ValToInt()
         {
-            return value;
+            return Value;
         }
 
         public int ValNot()
         {
-            return ((value == 0) ? 1 : 0);
+            return ((Value == 0) ? 1 : 0);
         }
 
         public void SetValue(int i)
         {
-            value = i;
+            Value = i;
         }
 
         public void SetValue(bool b)
         {
-            value = (b ? 1 : 0);
+            Value = (b ? 1 : 0);
         }
     }
 
     public class BoolSetting : IValueSetting<bool>
     {
-        public string name { get; set; }
-        public bool value { get; set; }
+        public string Name { get; set; }
+        public bool Value { get; set; }
 
         public BoolSetting() { }
 
         public BoolSetting(string _name)
         {
-            name = _name;
+            Name = _name;
         }
 
         public BoolSetting(string _name, bool _value)
         {
-            name = _name;
-            value = _value;
+            Name = _name;
+            Value = _value;
         }
 
         public override string ToString()
         {
-            return name;
+            return Name;
         }
 
         public string ValToString()
         {
-            return (value ? "1" : "0");
+            return (Value ? "1" : "0");
         }
 
         public bool ValToBool()
         {
-            return value;
+            return Value;
         }
 
         public int ValToInt()
         {
-            return (value ? 1 : 0);
+            return (Value ? 1 : 0);
         }
 
         public bool ValNot()
         {
-            return !value;
+            return !Value;
         }
 
         public void SetValue(int i)
         {
-            value = ((i == 0) ? false : true);
+            Value = ((i == 0) ? false : true);
         }
 
         public void SetValue(bool b)
         {
-            value = b;
+            Value = b;
         }
     }
 
     public class AutoSetting<T, U> where T : IValueSetting<U>, new()
     {
-        public T setting { get; set; }
-        public dynamic value { get { return setting.value; } set { setting.SetValue(value); } }
+        public T Setting { get; set; }
+        public dynamic Value { get { return Setting.Value; } set { Setting.SetValue(value); } }
 
         public AutoSetting(T s)
         {
-            setting = s;
+            Setting = s;
         }
 
         public override string ToString()
         {
-            return setting.name;
+            return Setting.Name;
         }
 
         public string ValToString()
         {
-            return setting.ValToString();
+            return Setting.ValToString();
         }
 
         public static implicit operator string(AutoSetting<T, U> s)
         {
-            return s.setting.name;
+            return s.Setting.Name;
         }
 
         public static implicit operator bool(AutoSetting<T, U> s)
         {
-            return s.setting.ValToBool();
+            return s.Setting.ValToBool();
         }
 
         public static implicit operator int(AutoSetting<T, U> s)
         {
-            return s.setting.ValToInt();
+            return s.Setting.ValToInt();
         }
 
         public static AutoSetting<T, U> operator !(AutoSetting<T, U> s)
         {
-            return new AutoSetting<T, U>(new T() { name = s.setting.name, value = s.setting.ValNot() });
+            return new AutoSetting<T, U>(new T() { Name = s.Setting.Name, Value = s.Setting.ValNot() });
         }
     }
 }

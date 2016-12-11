@@ -10,59 +10,67 @@ namespace Formatters
 {
     public struct ViewSettings
     {
-        public int tabWidth;
-        public bool useTabs;
-        public string eolMode;
-        public bool isSelection;
+        public int TabWidth;
+        public bool UseTabs;
+        public string EolMode;
+        public bool IsSelection;
     }
 
     public class JsonFormatter
     {
-        public static string prettyJson(StringBuilder sIn, ViewSettings view)
+        public static string PrettyJson(StringBuilder sIn, ViewSettings view, bool sorted = false)
         {
             string indent = "\t";
-            if (!view.useTabs)
-                indent = "".PadRight(view.tabWidth);
+            if (!view.UseTabs)
+                indent = "".PadRight(view.TabWidth);
 
             using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(sIn.ToString())))
             using (var sr = new StreamReader(ms))
-                return new ijsonParser().pretty(sr, indent, view.eolMode);
+                if (sorted)
+                    return new ijsonParser().PrettySorted(sr, indent, view.EolMode);
+                else
+                    return new ijsonParser().Pretty(sr, indent, view.EolMode);
         }
 
-        public static string miniJson(StringBuilder sIn)
+        public static string PrettyJsonSorted(StringBuilder sIn, ViewSettings view)
+        {
+            return PrettyJson(sIn, view, true);
+        }
+
+        public static string MiniJson(StringBuilder sIn)
         {
             using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(sIn.ToString())))
             using (var sr = new StreamReader(ms))
-                return new ijsonParser().minify(sr);
+                return new ijsonParser().Minify(sr);
         }
 
-        public static void validateJson(StringBuilder sIn)
+        public static void ValidateJson(StringBuilder sIn)
         {
             using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(sIn.ToString())))
             using (var sr = new StreamReader(ms))
-                foreach (var evt in new ijsonParser().parse(sr))
+                foreach (var evt in new ijsonParser().Parse(sr))
                     continue;
         }
     }
 
     public class XmlFormatter
     {
-        public static string prettyXml(StringBuilder sIn, ViewSettings view)
+        public static string PrettyXml(StringBuilder sIn, ViewSettings view)
         {
-            return doFormatXml(sIn, ref view, true);
+            return DoFormatXml(sIn, ref view, true);
         }
 
-        public static string miniXml(StringBuilder sIn, ViewSettings view)
+        public static string MiniXml(StringBuilder sIn, ViewSettings view)
         {
-            return doFormatXml(sIn, ref view, false);
+            return DoFormatXml(sIn, ref view, false);
         }
 
-        private static string doFormatXml(StringBuilder sIn, ref ViewSettings view, bool doPretty)
+        private static string DoFormatXml(StringBuilder sIn, ref ViewSettings view, bool doPretty)
         {
             var doc = XDocument.Parse(sIn.ToString());
             var settings = new XmlWriterSettings();
-            settings.OmitXmlDeclaration = (view.isSelection || (doc.Declaration == null));
-            if (!view.isSelection && doc.Declaration != null)
+            settings.OmitXmlDeclaration = (view.IsSelection || (doc.Declaration == null));
+            if (!view.IsSelection && doc.Declaration != null)
             {
                 string enc = doc.Declaration.Encoding;
                 if (enc != "")
@@ -79,11 +87,11 @@ namespace Formatters
             if (doPretty)
             {
                 string indent = "\t";
-                if (!view.useTabs)
-                    indent = "".PadRight(view.tabWidth);
+                if (!view.UseTabs)
+                    indent = "".PadRight(view.TabWidth);
 
                 settings.IndentChars = indent;
-                settings.NewLineChars = view.eolMode;
+                settings.NewLineChars = view.EolMode;
             }
 
             using (var ms = new MemoryStream())
@@ -97,7 +105,7 @@ namespace Formatters
             }
         }
 
-        public static void validateXml(StringBuilder sIn)
+        public static void ValidateXml(StringBuilder sIn)
         {
             var element = XDocument.Parse(sIn.ToString());
         }

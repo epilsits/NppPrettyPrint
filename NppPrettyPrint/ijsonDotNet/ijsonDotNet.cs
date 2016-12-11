@@ -1,9 +1,5 @@
 ﻿using System;
-//using System.Collections;
 using System.Collections.Generic;
-//using System.Linq;
-//using System.Text;
-//using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using System.IO;
 
@@ -13,15 +9,15 @@ namespace ijsonDotNet
     {
         const int BUFSIZE = 16 * 1024;
         private Regex LEXEME_RE { get; set; }
-        private ijsonCommon common { get; set; }
+        private ijsonCommon Common { get; set; }
 
         public ijsonParser()
         {
             LEXEME_RE = new Regex(@"[a-z0-9eE\.\+-]+|\S");
-            common = new ijsonCommon();
+            Common = new ijsonCommon();
         }
 
-        public IEnumerable<ijsonLexerEvent> lexer(TextReader f, int bufsize = BUFSIZE)
+        public IEnumerable<ijsonLexerEvent> Lexer(TextReader f, int bufsize = BUFSIZE)
         {
             char[] buf = new char[BUFSIZE];
             int pos = 0;
@@ -65,7 +61,7 @@ namespace ijsonDotNet
                             }
                         }
 
-                        yield return new ijsonLexerEvent { pos = discarded + pos, symbol = buff.Substring(pos, end + 1 - pos) };
+                        yield return new ijsonLexerEvent { Pos = discarded + pos, Symbol = buff.Substring(pos, end + 1 - pos) };
                         pos = end + 1;
                     }
                     else
@@ -81,7 +77,7 @@ namespace ijsonDotNet
                             lexeme = match.Value;
                         }
 
-                        yield return new ijsonLexerEvent { pos = discarded + match.Index, symbol = lexeme };
+                        yield return new ijsonLexerEvent { Pos = discarded + match.Index, Symbol = lexeme };
                         pos = match.Index + match.Length;
                     }
                 }
@@ -98,7 +94,7 @@ namespace ijsonDotNet
             }
         }
 
-        public IEnumerable<ijsonEvent2> parse_value(IEnumerator<ijsonLexerEvent> lexer, object symbol = null, int pos = 0)
+        public IEnumerable<ijsonEvent2> ParseValue(IEnumerator<ijsonLexerEvent> lexer, object symbol = null, int pos = 0)
         {
             if (symbol == null)
             {
@@ -106,36 +102,36 @@ namespace ijsonDotNet
                     throw new IncompleteJSONError("Incomplete JSON data");
 
                 ijsonLexerEvent evt = lexer.Current;
-                pos = evt.pos;
-                symbol = evt.symbol;
+                pos = evt.Pos;
+                symbol = evt.Symbol;
             }
 
             var sym = symbol.ToString();
             if (sym == "null")
             {
-                yield return new ijsonEvent2 { type = ijsonTokenType.Null, value = null };
+                yield return new ijsonEvent2 { Type = ijsonTokenType.Null, Value = null };
             }
             else if (sym == "true")
             {
-                yield return new ijsonEvent2 { type = ijsonTokenType.Boolean, value = true };
+                yield return new ijsonEvent2 { Type = ijsonTokenType.Boolean, Value = true };
             }
             else if (sym == "false")
             {
-                yield return new ijsonEvent2 { type = ijsonTokenType.Boolean, value = false };
+                yield return new ijsonEvent2 { Type = ijsonTokenType.Boolean, Value = false };
             }
             else if (sym == "[")
             {
-                foreach (var evnt in parse_array(lexer))
+                foreach (var evnt in ParseArray(lexer))
                     yield return evnt;
             }
             else if (sym == "{")
             {
-                foreach (var evnt in parse_object(lexer))
+                foreach (var evnt in ParseObject(lexer))
                     yield return evnt;
             }
             else if (sym[0] == '"')
             {
-                yield return new ijsonEvent2 { type = ijsonTokenType.String, value = sym.Substring(1, sym.Length - 2) };
+                yield return new ijsonEvent2 { Type = ijsonTokenType.String, Value = sym.Substring(1, sym.Length - 2) };
             }
             else
             {
@@ -146,32 +142,32 @@ namespace ijsonDotNet
                 }
                 else
                 {
-                    yield return new ijsonEvent2 { type = ijsonTokenType.Number, value = sym };
+                    yield return new ijsonEvent2 { Type = ijsonTokenType.Number, Value = sym };
                 }
             }
         }
 
-        public IEnumerable<ijsonEvent2> parse_array(IEnumerator<ijsonLexerEvent> lexer)
+        public IEnumerable<ijsonEvent2> ParseArray(IEnumerator<ijsonLexerEvent> lexer)
         {
-            yield return new ijsonEvent2 { type = ijsonTokenType.StartArray, value = null };
+            yield return new ijsonEvent2 { Type = ijsonTokenType.StartArray, Value = null };
             if (!lexer.MoveNext())
                 throw new IncompleteJSONError("Incomplete JSON data");
             
-            object symbol = lexer.Current.symbol;
-            int pos = lexer.Current.pos;
+            object symbol = lexer.Current.Symbol;
+            int pos = lexer.Current.Pos;
             string sym = symbol.ToString();
             if (sym != "]")
             {
                 while (true)
                 {
-                    foreach (var evnt in parse_value(lexer, symbol, pos))
+                    foreach (var evnt in ParseValue(lexer, symbol, pos))
                         yield return evnt;
 
                     if (!lexer.MoveNext())
                         throw new IncompleteJSONError("Incomplete JSON data");
                     
-                    symbol = lexer.Current.symbol;
-                    pos = lexer.Current.pos;
+                    symbol = lexer.Current.Symbol;
+                    pos = lexer.Current.Pos;
                     sym = symbol.ToString();
 
                     if (sym == "]")
@@ -183,22 +179,22 @@ namespace ijsonDotNet
                     if (!lexer.MoveNext())
                         throw new IncompleteJSONError("Incomplete JSON data");
                     
-                    symbol = lexer.Current.symbol;
-                    pos = lexer.Current.pos;
+                    symbol = lexer.Current.Symbol;
+                    pos = lexer.Current.Pos;
                 }
             }
             
-            yield return new ijsonEvent2 { type = ijsonTokenType.EndArray, value = null };
+            yield return new ijsonEvent2 { Type = ijsonTokenType.EndArray, Value = null };
         }
 
-        public IEnumerable<ijsonEvent2> parse_object(IEnumerator<ijsonLexerEvent> lexer)
+        public IEnumerable<ijsonEvent2> ParseObject(IEnumerator<ijsonLexerEvent> lexer)
         {
-            yield return new ijsonEvent2 { type = ijsonTokenType.StartMap, value = null };
+            yield return new ijsonEvent2 { Type = ijsonTokenType.StartMap, Value = null };
             if (!lexer.MoveNext())
                 throw new IncompleteJSONError("Incomplete JSON data");
             
-            object symbol = lexer.Current.symbol;
-            int pos = lexer.Current.pos;
+            object symbol = lexer.Current.Symbol;
+            int pos = lexer.Current.Pos;
             string sym = symbol.ToString();
             if (sym != "}")
             {
@@ -207,26 +203,26 @@ namespace ijsonDotNet
                     if (sym[0] != '"')
                         throw new UnexpectedSymbol(sym, pos);
 
-                    yield return new ijsonEvent2 { type = ijsonTokenType.MapKey, value = sym.Substring(1, sym.Length - 2) };
+                    yield return new ijsonEvent2 { Type = ijsonTokenType.MapKey, Value = sym.Substring(1, sym.Length - 2) };
 
                     if (!lexer.MoveNext())
                         throw new IncompleteJSONError("Incomplete JSON data");
 
-                    symbol = lexer.Current.symbol;
-                    pos = lexer.Current.pos;
+                    symbol = lexer.Current.Symbol;
+                    pos = lexer.Current.Pos;
                     sym = symbol.ToString();
 
                     if (sym != ":")
                         throw new UnexpectedSymbol(sym, pos);
 
-                    foreach (var evnt in parse_value(lexer, null, pos))
+                    foreach (var evnt in ParseValue(lexer, null, pos))
                         yield return evnt;
 
                     if (!lexer.MoveNext())
                         throw new IncompleteJSONError("Incomplete JSON data");
 
-                    symbol = lexer.Current.symbol;
-                    pos = lexer.Current.pos;
+                    symbol = lexer.Current.Symbol;
+                    pos = lexer.Current.Pos;
                     sym = symbol.ToString();
 
                     if (sym == "}")
@@ -238,20 +234,20 @@ namespace ijsonDotNet
                     if (!lexer.MoveNext())
                         throw new IncompleteJSONError("Incomplete JSON data");
 
-                    symbol = lexer.Current.symbol;
-                    pos = lexer.Current.pos;
+                    symbol = lexer.Current.Symbol;
+                    pos = lexer.Current.Pos;
                     sym = symbol.ToString();
                 }
             }
             
-            yield return new ijsonEvent2 { type = ijsonTokenType.EndMap, value = null };
+            yield return new ijsonEvent2 { Type = ijsonTokenType.EndMap, Value = null };
         }
 
-        public IEnumerable<ijsonEvent2> basic_parse(StreamReader f, int bufsize = BUFSIZE)
+        public IEnumerable<ijsonEvent2> BasicParse(StreamReader f, int bufsize = BUFSIZE)
         {
-            using (var iter = lexer(f, bufsize).GetEnumerator())
+            using (var iter = Lexer(f, bufsize).GetEnumerator())
             {
-                foreach (var value in parse_value(iter))
+                foreach (var value in ParseValue(iter))
                     yield return value;
 
                 if (iter.MoveNext())
@@ -259,19 +255,25 @@ namespace ijsonDotNet
             }
         }
 
-        public IEnumerable<ijsonEvent> parse(StreamReader f, int bufsize = BUFSIZE)
+        public IEnumerable<ijsonEvent> Parse(StreamReader f, int bufsize = BUFSIZE)
         {
-            return common.parse(basic_parse(f, bufsize));
+            return Common.Parse(BasicParse(f, bufsize));
         }
 
-        public string pretty(StreamReader f, string indent_string = "\t", string eol_string = "\r\n", int bufsize = BUFSIZE)
+        public string Pretty(StreamReader f, string indent_string = "\t", string eol_string = "\r\n", int bufsize = BUFSIZE)
         {
-            return common.pretty(parse(f, bufsize), indent_string, eol_string);
+            return Common.Pretty(BasicParse(f, bufsize), indent_string, eol_string);
         }
 
-        public string minify(StreamReader f, int bufsize = BUFSIZE)
+        public string PrettySorted(StreamReader f, string indent_string = "\t", string eol_string = "\r\n", int bufsize = BUFSIZE)
         {
-            return common.minify(parse(f, bufsize));
+            var OB = new ObjectBuilder();
+            return Common.Pretty(OB.SortedObject(BasicParse(f, bufsize)), indent_string, eol_string);
+        }
+
+        public string Minify(StreamReader f, int bufsize = BUFSIZE)
+        {
+            return Common.Minify(BasicParse(f, bufsize));
         }
     }
 }

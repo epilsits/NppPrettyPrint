@@ -4,21 +4,21 @@ namespace ijsonDotNet
 {
     public class ijsonEvent
     {
-        public string prefix { get; set; }
-        public ijsonTokenType type { get; set; }
-        public object value { get; set; }
+        public string Prefix { get; set; }
+        public ijsonTokenType Type { get; set; }
+        public object Value { get; set; }
     }
 
     public class ijsonEvent2
     {
-        public ijsonTokenType type { get; set; }
-        public object value { get; set; }
+        public ijsonTokenType Type { get; set; }
+        public object Value { get; set; }
     }
 
     public class ijsonLexerEvent
     {
-        public int pos { get; set; }
-        public string symbol { get; set; }
+        public int Pos { get; set; }
+        public string Symbol { get; set; }
     }
 
     public class JSONError : Exception

@@ -54,6 +54,7 @@
     <Compile Include="ijsonDotNet\Common.cs" />
     <Compile Include="ijsonDotNet\EnumsAndTypes.cs" />
     <Compile Include="ijsonDotNet\ijsonDotNet.cs" />
+    <Compile Include="ijsonDotNet\ObjectBuilder.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="NppPluginNETBase.cs" />
     <Compile Include="NppPluginNETHelper.cs" />
