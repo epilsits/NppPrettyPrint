@@ -52,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Configuration.cs" />
+    <Compile Include="Converters.cs" />
     <Compile Include="Formatters.cs" />
     <Compile Include="ijsonDotNet\Common.cs" />
     <Compile Include="ijsonDotNet\EnumsAndTypes.cs" />
