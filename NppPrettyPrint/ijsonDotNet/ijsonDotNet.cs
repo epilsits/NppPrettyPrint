@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace ijsonDotNet
 {
@@ -268,7 +268,10 @@ namespace ijsonDotNet
         public string PrettySorted(StreamReader f, string indent_string = "\t", string eol_string = "\r\n", int bufsize = BUFSIZE)
         {
             var OB = new ObjectBuilder();
-            return Common.Pretty(OB.SortedObject(BasicParse(f, bufsize)), indent_string, eol_string);
+            foreach (var evt in BasicParse(f, bufsize))
+                OB.BuildObject(evt);
+
+            return Common.Pretty(OB.ParseObjectSorted(OB.BuiltObject), indent_string, eol_string);
         }
 
         public string Minify(StreamReader f, int bufsize = BUFSIZE)

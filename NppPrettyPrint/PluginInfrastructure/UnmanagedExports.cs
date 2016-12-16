@@ -1,9 +1,11 @@
-﻿using System;
+﻿// NPP plugin platform for .Net v0.93.87 by Kasper B. Graversen etc.
+using System;
 using System.Runtime.InteropServices;
-using NppPluginNET;
+using Kbg.NppPluginNET.PluginInfrastructure;
 using NppPlugin.DllExport;
+using NppPrettyPrint;
 
-namespace NppPrettyPrint
+namespace Kbg.NppPluginNET
 {
     class UnmanagedExports
     {
@@ -17,7 +19,7 @@ namespace NppPrettyPrint
         static void setInfo(NppData notepadPlusData)
         {
             PluginBase.nppData = notepadPlusData;
-            Plugin.CommandMenuInit();
+            Main.CommandMenuInit();
         }
 
         [DllExport(CallingConvention = CallingConvention.Cdecl)]
@@ -38,39 +40,27 @@ namespace NppPrettyPrint
         static IntPtr getName()
         {
             if (_ptrPluginName == IntPtr.Zero)
-                _ptrPluginName = Marshal.StringToHGlobalUni(Plugin.PluginName);
+                _ptrPluginName = Marshal.StringToHGlobalUni(Main.PluginName);
             return _ptrPluginName;
         }
 
         [DllExport(CallingConvention = CallingConvention.Cdecl)]
         static void beNotified(IntPtr notifyCode)
         {
-            SCNotification nc = (SCNotification)Marshal.PtrToStructure(notifyCode, typeof(SCNotification));
-            if (nc.nmhdr.code == (uint)NppMsg.NPPN_TBMODIFICATION)
+            ScNotification notification = (ScNotification)Marshal.PtrToStructure(notifyCode, typeof(ScNotification));
+            if (notification.Header.Code == (uint)NppMsg.NPPN_TBMODIFICATION)
             {
                 PluginBase._funcItems.RefreshItems();
-                //Main.SetToolBarIcon();
+                Main.SetToolBarIcon();
             }
-            else if (nc.nmhdr.code == (uint)NppMsg.NPPN_BUFFERACTIVATED)
+            else if (notification.Header.Code == (uint)NppMsg.NPPN_SHUTDOWN)
             {
-                Plugin.OnBufferActivated((int)nc.nmhdr.idFrom);
-            }
-            else if (nc.nmhdr.code == (uint)NppMsg.NPPN_FILESAVED)
-            {
-                Plugin.OnFileSaved((int)nc.nmhdr.idFrom);
-            }
-            else if (nc.nmhdr.code == (uint)NppMsg.NPPN_FILECLOSED)
-            {
-                Plugin.OnFileClosed((int)nc.nmhdr.idFrom);
-            }
-            else if (nc.nmhdr.code == (uint)NppMsg.NPPN_LANGCHANGED)
-            {
-                Plugin.OnLangChanged((int)nc.nmhdr.idFrom);
-            }
-            else if (nc.nmhdr.code == (uint)NppMsg.NPPN_SHUTDOWN)
-            {
-                Plugin.OnNppShutdown();
+                Main.PluginCleanUp();
                 Marshal.FreeHGlobal(_ptrPluginName);
+            }
+            else
+            {
+	            Main.OnNotification(notification);
             }
         }
     }

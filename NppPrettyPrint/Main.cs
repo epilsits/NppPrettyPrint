@@ -1,16 +1,18 @@
-﻿using System;
+﻿using Configuration;
+using Converters;
+using Formatters;
+using ijsonDotNet;
+using Kbg.NppPluginNET.PluginInfrastructure;
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
-using NppPluginNET;
-using Formatters;
-using Converters;
-using System.Collections.Generic;
-using Configuration;
 
 namespace NppPrettyPrint
 {
-    class Plugin
+    static class Main
     {
         #region " Fields "
         internal const string PluginName = "NppPrettyPrint";
@@ -20,7 +22,10 @@ namespace NppPrettyPrint
         static AutoSetting<IntSetting, int> AutodetectMaxLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxLinesToRead"));
         static AutoSetting<IntSetting, int> AutodetectMinWhitespaceLines = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinWhitespaceLines"));
         static AutoSetting<IntSetting, int> AutodetectMaxCharsToReadPerLine = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxCharsToReadPerLine"));
+        static AutoSetting<StringSetting, string> XmlSortExcludeAttributeValues = new AutoSetting<StringSetting, string>(new StringSetting("xmlSortExcludeAttributeValues"));
+        static AutoSetting<StringSetting, string> XmlSortExcludeValueDelimiter = new AutoSetting<StringSetting, string>(new StringSetting("xmlSortExcludeValueDelimiter"));
         static int AutodetectCmdId = 0;
+        static IntPtr CurScintilla = (IntPtr)0;
         //static Bitmap tbBmp = Properties.Resources.star;
         //static Bitmap tbBmp_tbTab = Properties.Resources.star_bmp;
         //static Icon tbIcon = null;
@@ -33,6 +38,7 @@ namespace NppPrettyPrint
             MiniJson,
             ValidateJson,
             PrettyXml,
+            PrettyXmlSorted,
             MiniXml,
             ValidateXml,
             B64GzipString,
@@ -44,6 +50,14 @@ namespace NppPrettyPrint
             internal int Id;
             internal string Path;
             internal int UseTabs;
+        }
+
+        internal struct ViewSettings
+        {
+            public int TabWidth;
+            public bool UseTabs;
+            public string EolMode;
+            public bool IsSelection;
         }
 
         internal static Dictionary<int, BufferInfo> FileCache = new Dictionary<int, BufferInfo>();
@@ -62,9 +76,9 @@ namespace NppPrettyPrint
 
             private EolMode(int value, string str, string name)
             {
-                this.Value = value;
-                this.Str = str;
-                this.Name = name;
+                Value = value;
+                Str = str;
+                Name = name;
                 Instance[value] = this;
             }
 
@@ -84,17 +98,47 @@ namespace NppPrettyPrint
         }
 
         #region " StartUp/CleanUp "
+        public static void OnNotification(ScNotification notification)
+        {
+            // This method is invoked whenever something is happening in notepad++
+            // use eg. as
+            // if (notification.Header.Code == (uint)NppMsg.NPPN_xxx)
+            // { ... }
+            // or
+            //
+            // if (notification.Header.Code == (uint)SciMsg.SCNxxx)
+            // { ... }
+
+            uint code = notification.Header.Code;
+            uint idFrom = notification.Header.IdFrom;
+            if (code == (uint)NppMsg.NPPN_BUFFERACTIVATED)
+            {
+                OnBufferActivated((int)idFrom);
+            }
+            else if (code == (uint)NppMsg.NPPN_FILESAVED)
+            {
+                OnFileSaved((int)idFrom);
+            }
+            else if (code == (uint)NppMsg.NPPN_FILECLOSED)
+            {
+                OnFileClosed((int)idFrom);
+            }
+            else if (code == (uint)NppMsg.NPPN_LANGCHANGED)
+            {
+                OnLangChanged((int)idFrom);
+            }
+        }
+
         internal static void CommandMenuInit()
         {
             StringBuilder sbIniFilePath = new StringBuilder(Win32.MAX_PATH);
-            Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_GETPLUGINSCONFIGDIR, Win32.MAX_PATH, sbIniFilePath);
+            Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_GETPLUGINSCONFIGDIR, Win32.MAX_PATH, sbIniFilePath);
             IniFilePath = sbIniFilePath.ToString();
             if (!Directory.Exists(IniFilePath)) Directory.CreateDirectory(IniFilePath);
             IniFilePath = Path.Combine(IniFilePath, PluginName + ".ini");
 
             ReadSettings();
-            if (!File.Exists(IniFilePath))
-                WriteSettings();
+            WriteSettings();
 
             int cmdIdx = 0;
 
@@ -104,6 +148,7 @@ namespace NppPrettyPrint
             PluginBase.SetCommand(cmdIdx++, "Json: Validate", ValidateJsonMenu);
             PluginBase.SetCommand(cmdIdx++, "---", null);
             PluginBase.SetCommand(cmdIdx++, "Xml: Pretty", FormatPrettyXmlMenu);
+            PluginBase.SetCommand(cmdIdx++, "Xml: Pretty (sorted)", FormatPrettyXmlSortedMenu);
             PluginBase.SetCommand(cmdIdx++, "Xml: Minify", FormatMiniXmlMenu);
             PluginBase.SetCommand(cmdIdx++, "Xml: Validate", ValidateXMLMenu);
             PluginBase.SetCommand(cmdIdx++, "---", null);
@@ -118,21 +163,22 @@ namespace NppPrettyPrint
             PluginBase.SetCommand(cmdIdx++, "---", null);
             PluginBase.SetCommand(cmdIdx++, "Settings...", SettingsMenu);
             //PluginBase.SetCommand(1, "Pretty Json: Format", prettyJson, new ShortcutKey(false, false, false, Keys.None));
-        }
 
-        //internal static void SetToolBarIcon()
-        //{
-        //    toolbarIcons tbIcons = new toolbarIcons();
-        //    tbIcons.hToolbarBmp = tbBmp.GetHbitmap();
-        //    IntPtr pTbIcons = Marshal.AllocHGlobal(Marshal.SizeOf(tbIcons));
-        //    Marshal.StructureToPtr(tbIcons, pTbIcons, false);
-        //    Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_ADDTOOLBARICON, PluginBase._funcItems.Items[idMyDlg]._cmdID, pTbIcons);
-        //    Marshal.FreeHGlobal(pTbIcons);
-        //}
+            CurScintilla = PluginBase.GetCurrentScintilla();
+        }
+        
+        internal static void SetToolBarIcon()
+        {
+            //toolbarIcons tbIcons = new toolbarIcons();
+            //tbIcons.hToolbarBmp = tbBmp.GetHbitmap();
+            //IntPtr pTbIcons = Marshal.AllocHGlobal(Marshal.SizeOf(tbIcons));
+            //Marshal.StructureToPtr(tbIcons, pTbIcons, false);
+            //Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_ADDTOOLBARICON, PluginBase._funcItems.Items[idMyDlg]._cmdID, pTbIcons);
+            //Marshal.FreeHGlobal(pTbIcons);
+        }
 
         internal static void PluginCleanUp()
-        {
-        }
+        { }
         #endregion
 
         #region " Menu functions "
@@ -159,6 +205,11 @@ namespace NppPrettyPrint
         internal static void FormatPrettyXmlMenu()
         {
             FormatData(FormatType.PrettyXml);
+        }
+
+        internal static void FormatPrettyXmlSortedMenu()
+        {
+            FormatData(FormatType.PrettyXmlSorted);
         }
 
         internal static void FormatMiniXmlMenu()
@@ -218,7 +269,29 @@ namespace NppPrettyPrint
 
         internal static void SettingsMenu()
         {
-            Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_DOOPEN, 0, IniFilePath);
+            //Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DOOPEN, 0, IniFilePath);
+            using (var settings = new SettingsDialog())
+            {
+                settings.valMinLinesToRead = AutodetectMinLinesToRead;
+                settings.valMaxLinesToRead = AutodetectMaxLinesToRead;
+                settings.valMinWhitespaceLines = AutodetectMinWhitespaceLines;
+                settings.valMaxCharsPerLine = AutodetectMaxCharsToReadPerLine;
+                settings.valExcludeAttributeValues = XmlSortExcludeAttributeValues.ValToString();
+                settings.valExcludeValueDelimiter = XmlSortExcludeValueDelimiter.ValToString();
+
+                if (DialogResult.OK == settings.ShowDialog())
+                {
+                    AutodetectMinLinesToRead.Value = settings.valMinLinesToRead;
+                    AutodetectMaxLinesToRead.Value = settings.valMaxLinesToRead;
+                    AutodetectMinWhitespaceLines.Value = settings.valMinWhitespaceLines;
+                    AutodetectMaxCharsToReadPerLine.Value = settings.valMaxCharsPerLine;
+                    XmlSortExcludeAttributeValues.Value = settings.valExcludeAttributeValues;
+                    XmlSortExcludeValueDelimiter.Value = settings.valExcludeValueDelimiter;
+
+                    ApplySettings();
+                    WriteSettings();
+                }
+            }
         }
         #endregion
 
@@ -226,22 +299,21 @@ namespace NppPrettyPrint
         internal static void FormatData(FormatType fType)
         {
             StringBuilder npText;
-            var curScintilla = PluginBase.GetCurrentScintilla();
             var isSel = false;
 
-            var selLen = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETSELTEXT, 0, 0);
+            var selLen = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETSELTEXT, 0, 0);
             // len is text + terminating null
             if (selLen > 1)
             {
                 isSel = true;
                 npText = new StringBuilder(selLen + 1);
-                Win32.SendMessage(curScintilla, SciMsg.SCI_GETSELTEXT, 0, npText);
+                Win32.SendMessage(CurScintilla, SciMsg.SCI_GETSELTEXT, 0, npText);
             }
             else
             {
-                var nLen = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETLENGTH, 0, 0);
+                var nLen = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETLENGTH, 0, 0);
                 npText = new StringBuilder(nLen + 1);
-                Win32.SendMessage(curScintilla, SciMsg.SCI_GETTEXT, nLen + 1, npText);
+                Win32.SendMessage(CurScintilla, SciMsg.SCI_GETTEXT, nLen + 1, npText);
             }
             
             try
@@ -252,14 +324,15 @@ namespace NppPrettyPrint
                 }
 
                 string npOut = "";
+                var view = GetViewSettings(isSel);
                 if (fType == FormatType.PrettyJson)
                 {
-                    npOut = JsonFormatter.PrettyJson(npText, GetViewSettings(isSel));
+                    npOut = JsonFormatter.PrettyJson(npText, new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
                     SetLangType((int)LangType.L_JSON);
                 }
                 else if (fType == FormatType.PrettyJsonSorted)
                 {
-                    npOut = JsonFormatter.PrettyJsonSorted(npText, GetViewSettings(isSel));
+                    npOut = JsonFormatter.PrettyJsonSorted(npText, new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
                     SetLangType((int)LangType.L_JSON);
                 }
                 else if (fType == FormatType.MiniJson)
@@ -275,12 +348,18 @@ namespace NppPrettyPrint
                 }
                 else if (fType == FormatType.PrettyXml)
                 {
-                    npOut = XmlFormatter.PrettyXml(npText, GetViewSettings(isSel));
+                    npOut = XmlFormatter.PrettyXml(npText, new XmlFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode, IsSelection = view.IsSelection });
+                    SetLangType((int)LangType.L_XML);
+                }
+                else if (fType == FormatType.PrettyXmlSorted)
+                {
+                    npOut = XmlFormatter.PrettyXmlSorted(npText, new XmlFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode, IsSelection = view.IsSelection },
+                        XmlSortExcludeAttributeValues.ValToString().Split(new string[] { XmlSortExcludeValueDelimiter.ValToString() }, StringSplitOptions.RemoveEmptyEntries));
                     SetLangType((int)LangType.L_XML);
                 }
                 else if (fType == FormatType.MiniXml)
                 {
-                    npOut = XmlFormatter.MiniXml(npText, GetViewSettings(isSel));
+                    npOut = XmlFormatter.MiniXml(npText, new XmlFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode, IsSelection = view.IsSelection });
                     SetLangType((int)LangType.L_XML);
                 }
                 else if (fType == FormatType.ValidateXml)
@@ -302,18 +381,30 @@ namespace NppPrettyPrint
                     throw new Exception("Invalid command.");
                 }
 
+                SciMsg setMsg;
                 if (isSel)
-                {
-                    Win32.SendMessage(curScintilla, SciMsg.SCI_REPLACESEL, 0, npOut);
-                }
+                    setMsg = SciMsg.SCI_REPLACESEL;
                 else
-                {
-                    Win32.SendMessage(curScintilla, SciMsg.SCI_SETTEXT, 0, npOut);
-                }
+                    setMsg = SciMsg.SCI_SETTEXT;
+
+                Win32.SendMessage(CurScintilla, setMsg, 0, npOut);
+
+                //unsafe
+                //{
+                //    fixed (byte* strPtr = Encoding.UTF8.GetBytes(npOut))
+                //    {
+                //        Win32.SendMessage(CurScintilla, setMsg, 0, (IntPtr)strPtr);
+                //    }
+                //}
             }
             catch (Exception e)
             {
                 MessageBox.Show(string.Format("{0}", e.Message), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                //GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized);
+                GC.Collect();
             }
         }
         #endregion
@@ -321,16 +412,15 @@ namespace NppPrettyPrint
         #region " Utility Functions "
         internal static ViewSettings GetViewSettings(bool isSelection = false)
         {
-            var curScintilla = PluginBase.GetCurrentScintilla();
-            int tabWidth = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETTABWIDTH, 0, 0);
-            var eolMode = (EolMode)(int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETEOLMODE, 0, 0);
+            int tabWidth = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETTABWIDTH, 0, 0);
+            var eolMode = (EolMode)(int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETEOLMODE, 0, 0);
 
             int id = GetActiveBuffer();
             bool useTabs;
             if (FileCache.ContainsKey(id))
                 useTabs = Convert.ToBoolean(FileCache[id].UseTabs);
             else
-                useTabs = Convert.ToBoolean((int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETUSETABS, 0, 0));
+                useTabs = Convert.ToBoolean((int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETUSETABS, 0, 0));
 
             return new ViewSettings() { TabWidth = tabWidth, UseTabs = useTabs, EolMode = eolMode.Str, IsSelection = isSelection };
         }
@@ -342,6 +432,13 @@ namespace NppPrettyPrint
             AutodetectMaxLinesToRead.Value = Win32.GetPrivateProfileInt("Settings", AutodetectMaxLinesToRead, 20, IniFilePath);
             AutodetectMinWhitespaceLines.Value = Win32.GetPrivateProfileInt("Settings", AutodetectMinWhitespaceLines, 5, IniFilePath);
             AutodetectMaxCharsToReadPerLine.Value = Win32.GetPrivateProfileInt("Settings", AutodetectMaxCharsToReadPerLine, 100, IniFilePath);
+
+            var sb = new StringBuilder(4096);
+            Win32Extensions.GetPrivateProfileString("Settings", XmlSortExcludeAttributeValues, "true,false,yes,no,on,off", sb, sb.Capacity, IniFilePath);
+            XmlSortExcludeAttributeValues.Value = sb.ToString();
+            sb.Clear();
+            Win32Extensions.GetPrivateProfileString("Settings", XmlSortExcludeValueDelimiter, ",", sb, sb.Capacity, IniFilePath);
+            XmlSortExcludeValueDelimiter.Value = sb.ToString();
         }
 
         internal static void WriteSettings()
@@ -351,6 +448,8 @@ namespace NppPrettyPrint
             Win32.WritePrivateProfileString("Settings", AutodetectMaxLinesToRead, AutodetectMaxLinesToRead.ValToString(), IniFilePath);
             Win32.WritePrivateProfileString("Settings", AutodetectMinWhitespaceLines, AutodetectMinWhitespaceLines.ValToString(), IniFilePath);
             Win32.WritePrivateProfileString("Settings", AutodetectMaxCharsToReadPerLine, AutodetectMaxCharsToReadPerLine.ValToString(), IniFilePath);
+            Win32.WritePrivateProfileString("Settings", XmlSortExcludeAttributeValues, XmlSortExcludeAttributeValues.ValToString(), IniFilePath);
+            Win32.WritePrivateProfileString("Settings", XmlSortExcludeValueDelimiter, XmlSortExcludeValueDelimiter.ValToString(), IniFilePath);
         }
 
         internal static void ApplySettings()
@@ -362,7 +461,7 @@ namespace NppPrettyPrint
         internal static BufferInfo GetBufferInfo(int id, int useTabs = 0)
         {
             var path = new StringBuilder(Win32.MAX_PATH);
-            if ((int)Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_GETFULLPATHFROMBUFFERID, id, path) == -1)
+            if ((int)Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_GETFULLPATHFROMBUFFERID, id, path) == -1)
             {
                 throw new Exception("Invalid buffer ID.");
             }
@@ -372,22 +471,21 @@ namespace NppPrettyPrint
 
         internal static int GetActiveBuffer()
         {
-            return (int)Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_GETCURRENTBUFFERID, 0, 0);
+            return (int)Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_GETCURRENTBUFFERID, 0, 0);
         }
 
         internal static void setUseTabs(int useTabs)
         {
-            Win32.SendMessage(PluginBase.GetCurrentScintilla(), SciMsg.SCI_SETUSETABS, useTabs, 0);
+            Win32.SendMessage(CurScintilla, SciMsg.SCI_SETUSETABS, useTabs, 0);
         }
 
         internal static void SetLangType(int langType)
         {
-            Win32.SendMessage(PluginBase.nppData._nppHandle, NppMsg.NPPM_SETCURRENTLANGTYPE, 0, langType);
+            Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_SETCURRENTLANGTYPE, 0, langType);
         }
 
         internal static void GuessIndentation(int id, bool force = false)
         {
-            var curScintilla = PluginBase.GetCurrentScintilla();
             BufferInfo buff;
             if (FileCache.TryGetValue(id, out buff))
             {
@@ -398,27 +496,27 @@ namespace NppPrettyPrint
             if (!EnableAutoDetect && !force)
                 return;
 
-            int numLines = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETLINECOUNT, 0, 0);
+            int numLines = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETLINECOUNT, 0, 0);
             if (numLines >= AutodetectMinLinesToRead)
             {
                 int wsLines = 0;
                 int tabLines = 0;
-                var ttf = new Sci_TextToFind(0, 0, @"^\s+");
+                var ttf = new TextToFind(0, 0, @"^\s+");
                 for (var i = 0; i < Math.Min(AutodetectMaxLinesToRead, numLines); i++)
                 {
-                    int startPos = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_POSITIONFROMLINE, i, 0);
-                    int endPos = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_GETLINEENDPOSITION, i, 0); // excl EOL chars
+                    int startPos = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_POSITIONFROMLINE, i, 0);
+                    int endPos = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETLINEENDPOSITION, i, 0); // excl EOL chars
                     int lineLen = endPos - startPos;
                     if (lineLen > 0)
                     {
-                        ttf.chrg = new Sci_CharacterRange(startPos, startPos + Math.Min(lineLen, AutodetectMaxCharsToReadPerLine));
-                        int find = (int)Win32.SendMessage(curScintilla, SciMsg.SCI_FINDTEXT, (int)(SciMsg.SCFIND_REGEXP | SciMsg.SCFIND_CXX11REGEX), ttf.NativePointer);
+                        ttf.chrg = new CharacterRange(startPos, startPos + Math.Min(lineLen, AutodetectMaxCharsToReadPerLine));
+                        int find = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_FINDTEXT, (int)(SciMsg.SCFIND_REGEXP | SciMsg.SCFIND_CXX11REGEX), ttf.NativePointer);
                         if (find != -1)
                         {
                             wsLines++;
                             var rgFind = ttf.chrgText;
-                            var tr = new Sci_TextRange(rgFind, rgFind.cpMax - rgFind.cpMin + 1);
-                            Win32.SendMessage(curScintilla, SciMsg.SCI_GETTEXTRANGE, 0, tr.NativePointer);
+                            var tr = new TextRange(rgFind, rgFind.cpMax - rgFind.cpMin + 1);
+                            Win32.SendMessage(CurScintilla, SciMsg.SCI_GETTEXTRANGE, 0, tr.NativePointer);
                             if (tr.lpstrText.Contains("\t"))
                                 tabLines++;
 
@@ -471,6 +569,7 @@ namespace NppPrettyPrint
         #region " Events "
         internal static void OnBufferActivated(int id)
         {
+            CurScintilla = PluginBase.GetCurrentScintilla();
             GuessIndentation(id);
         }
 
@@ -489,11 +588,12 @@ namespace NppPrettyPrint
             if (FileCache.ContainsKey(id))
                 setUseTabs(FileCache[id].UseTabs);
         }
-
-        internal static void OnNppShutdown()
-        {
-            PluginCleanUp();
-        }
         #endregion
+    }
+
+    public class Win32Extensions
+    {
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        public static extern uint GetPrivateProfileString(string lpAppName, string lpKeyName, string lpDefault, StringBuilder lpReturnedString, int nSize, string lpFileName);
     }
 }

@@ -1,4 +1,6 @@
-﻿namespace Configuration
+﻿using System;
+
+namespace Configuration
 {
     public interface ISetting
     {
@@ -121,6 +123,64 @@
         public void SetValue(bool b)
         {
             Value = b;
+        }
+    }
+
+    public class StringSetting : IValueSetting<string>
+    {
+        public string Name { get; set; }
+        public string Value { get; set; }
+
+        public StringSetting() { }
+
+        public StringSetting(string _name)
+        {
+            Name = _name;
+        }
+
+        public StringSetting(string _name, string _value)
+        {
+            Name = _name;
+            Value = _value;
+        }
+
+        public void SetValue(bool i)
+        {
+            Value = i ? "true" : "false";
+        }
+
+        public void SetValue(int i)
+        {
+            Value = i.ToString();
+        }
+
+        public void SetValue(string s)
+        {
+            Value = s;
+        }
+
+        public string ValNot()
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool ValToBool()
+        {
+            return (Value == "") ? false : true;
+        }
+
+        public int ValToInt()
+        {
+            int i;
+            if (int.TryParse(Value, out i))
+                return i;
+            else
+                throw new ArgumentException("String in not an integer");
+        }
+
+        public string ValToString()
+        {
+            return Value;
         }
     }
 

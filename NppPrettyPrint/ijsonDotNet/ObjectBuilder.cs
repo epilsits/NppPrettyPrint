@@ -139,7 +139,7 @@ namespace ijsonDotNet
         {
             if (item.ValueType == ValueType.MapList || item.ValueType == ValueType.ArrayList)
             {
-                foreach (var evt in ParseObject((ItemList<Item>)item.Value, sorted))
+                foreach (var evt in ParseList((ItemList<Item>)item.Value, sorted))
                     yield return evt;
             }
             else // value
@@ -163,7 +163,7 @@ namespace ijsonDotNet
             }
         }
 
-        public IEnumerable<ijsonEvent2> ParseObject(ItemList<Item> items, bool sorted = false)
+        public IEnumerable<ijsonEvent2> ParseList(ItemList<Item> items, bool sorted = false)
         {
             if (sorted)
                 items.Sort();
@@ -223,12 +223,15 @@ namespace ijsonDotNet
             }
         }
 
-        public IEnumerable<ijsonEvent2> SortedObject(IEnumerable<ijsonEvent2> events)
+        public IEnumerable<ijsonEvent2> ParseObject(ItemList<Item> list)
         {
-            foreach (var evt in events)
-                BuildObject(evt);
+            foreach (var evt in ParseList(list))
+                yield return evt;
+        }
 
-            foreach (var evt in ParseObject(BuiltObject, true))
+        public IEnumerable<ijsonEvent2> ParseObjectSorted(ItemList<Item> list)
+        {
+            foreach (var evt in ParseList(list, true))
                 yield return evt;
         }
     }
