@@ -85,6 +85,7 @@
     <Compile Include="Forms\SettingsDialog.Designer.cs">
       <DependentUpon>SettingsDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Win32Extensions.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Forms\SettingsDialog.resx">

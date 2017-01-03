@@ -25,6 +25,8 @@ namespace NppPrettyPrint
         static AutoSetting<StringSetting, string> XmlSortExcludeAttributeValues = new AutoSetting<StringSetting, string>(new StringSetting("xmlSortExcludeAttributeValues"));
         static AutoSetting<StringSetting, string> XmlSortExcludeValueDelimiter = new AutoSetting<StringSetting, string>(new StringSetting("xmlSortExcludeValueDelimiter"));
         static int AutodetectCmdId = 0;
+        //static int SubmenuCmdId = 0;
+        //static int SubmenuItem = 0;
         static IntPtr CurScintilla = (IntPtr)0;
         //static Bitmap tbBmp = Properties.Resources.star;
         //static Bitmap tbBmp_tbTab = Properties.Resources.star_bmp;
@@ -42,6 +44,7 @@ namespace NppPrettyPrint
             MiniXml,
             ValidateXml,
             B64GzipString,
+            B64GzipPrettyJson,
             B64GzipPayload
         }
 
@@ -111,7 +114,11 @@ namespace NppPrettyPrint
 
             uint code = notification.Header.Code;
             uint idFrom = notification.Header.IdFrom;
-            if (code == (uint)NppMsg.NPPN_BUFFERACTIVATED)
+            if (code == (uint)NppMsg.NPPN_READY)
+            {
+                OnPluginReady();
+            }
+            else if (code == (uint)NppMsg.NPPN_BUFFERACTIVATED)
             {
                 OnBufferActivated((int)idFrom);
             }
@@ -153,6 +160,7 @@ namespace NppPrettyPrint
             PluginBase.SetCommand(cmdIdx++, "Xml: Validate", ValidateXMLMenu);
             PluginBase.SetCommand(cmdIdx++, "---", null);
             PluginBase.SetCommand(cmdIdx++, "Base64/Gzip -> String", B64GzipStringMenu);
+            PluginBase.SetCommand(cmdIdx++, "Base64/Gzip -> Pretty Json", B64GzipPrettyJsonMenu);
             PluginBase.SetCommand(cmdIdx++, "String -> Base64/Gzip", B64GzipPayloadMenu);
             PluginBase.SetCommand(cmdIdx++, "---", null);
             PluginBase.SetCommand(cmdIdx++, "Detect Indentation", DetectMenu);
@@ -162,11 +170,13 @@ namespace NppPrettyPrint
             PluginBase.SetCommand(AutodetectCmdId, "Enable Autodetect", AutodetectEnableMenu, EnableAutoDetect);
             PluginBase.SetCommand(cmdIdx++, "---", null);
             PluginBase.SetCommand(cmdIdx++, "Settings...", SettingsMenu);
+            //SubmenuCmdId = cmdIdx++;
+            //PluginBase.SetCommand(SubmenuCmdId, "Sub menu", NoOpMenu);
+            //SubmenuItem = cmdIdx++;
+            //PluginBase.SetCommand(SubmenuItem, "Sub menu item", NoOpMenu);
             //PluginBase.SetCommand(1, "Pretty Json: Format", prettyJson, new ShortcutKey(false, false, false, Keys.None));
-
-            CurScintilla = PluginBase.GetCurrentScintilla();
         }
-        
+
         internal static void SetToolBarIcon()
         {
             //toolbarIcons tbIcons = new toolbarIcons();
@@ -225,6 +235,10 @@ namespace NppPrettyPrint
         internal static void B64GzipStringMenu()
         {
             FormatData(FormatType.B64GzipString);
+        }
+        internal static void B64GzipPrettyJsonMenu()
+        {
+            FormatData(FormatType.B64GzipPrettyJson);
         }
 
         internal static void B64GzipPayloadMenu()
@@ -293,6 +307,9 @@ namespace NppPrettyPrint
                 }
             }
         }
+
+        //internal static void NoOpMenu()
+        //{ MessageBox.Show("Clicked menu NoOp"); }
         #endregion
 
         #region " Worker Functions "
@@ -371,6 +388,12 @@ namespace NppPrettyPrint
                 else if (fType == FormatType.B64GzipString)
                 {
                     npOut = Base64GzipConverter.ConvertToString(npText);
+                }
+                else if (fType == FormatType.B64GzipPrettyJson)
+                {
+                    npOut = JsonFormatter.PrettyJson(new StringBuilder(Base64GzipConverter.ConvertToString(npText)),
+                        new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
+                    SetLangType((int)LangType.L_JSON);
                 }
                 else if (fType == FormatType.B64GzipPayload)
                 {
@@ -567,6 +590,18 @@ namespace NppPrettyPrint
         #endregion
 
         #region " Events "
+        internal static void OnPluginReady()
+        {
+            CurScintilla = PluginBase.GetCurrentScintilla();
+
+            // menu modifications
+            //IntPtr submenu = Win32Extensions.CreatePopupMenu();
+            //Win32Extensions.ModifyMenu(Win32.GetMenu(PluginBase.nppData._nppHandle), PluginBase._funcItems.Items[SubmenuCmdId]._cmdID,
+            //    Win32.MF_BYCOMMAND | (int)Win32Extensions.MenuFlags.MF_POPUP, submenu, "Sub menu2");
+            //Win32Extensions.DeleteMenu(Win32.GetMenu(PluginBase.nppData._nppHandle), PluginBase._funcItems.Items[SubmenuItem]._cmdID, Win32.MF_BYCOMMAND);
+            //Win32Extensions.AppendMenu(submenu, Win32Extensions.MenuFlags.MF_STRING, PluginBase._funcItems.Items[SubmenuItem]._cmdID, "Sub menu item2");
+        }
+
         internal static void OnBufferActivated(int id)
         {
             CurScintilla = PluginBase.GetCurrentScintilla();
@@ -589,11 +624,5 @@ namespace NppPrettyPrint
                 setUseTabs(FileCache[id].UseTabs);
         }
         #endregion
-    }
-
-    public class Win32Extensions
-    {
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
-        public static extern uint GetPrivateProfileString(string lpAppName, string lpKeyName, string lpDefault, StringBuilder lpReturnedString, int nSize, string lpFileName);
     }
 }
