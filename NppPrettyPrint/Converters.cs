@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Text;
 
 namespace Converters
@@ -27,6 +28,26 @@ namespace Converters
                 return Convert.ToBase64String(msOut.ToArray(), Base64FormattingOptions.None);
             }
 
+        }
+    }
+
+    public class BlobConverter
+    {
+        public static string ConvertToString(StringBuilder sIn)
+        {
+            byte[] bIn = StringToByteArray(sIn.ToString());
+            using (var msIn = new MemoryStream(bIn))
+            using (var gz = new GZipStream(msIn, CompressionMode.Decompress))
+            using (var sr = new StreamReader(gz))
+                return sr.ReadToEnd();
+        }
+
+        public static byte[] StringToByteArray(string str)
+        {
+            int start = str.StartsWith("0x", StringComparison.Ordinal) ? 1 : 0;
+            return Enumerable.Range(start, (str.Length / 2) - start)
+                             .Select(h => Convert.ToByte(str.Substring(h * 2, 2), 16))
+                             .ToArray();
         }
     }
 }

@@ -45,7 +45,8 @@ namespace NppPrettyPrint
             ValidateXml,
             B64GzipString,
             B64GzipPrettyJson,
-            B64GzipPayload
+            B64GzipPayload,
+            BlobString
         }
 
         internal struct BufferInfo
@@ -163,6 +164,8 @@ namespace NppPrettyPrint
             PluginBase.SetCommand(cmdIdx++, "Base64/Gzip -> Pretty Json", B64GzipPrettyJsonMenu);
             PluginBase.SetCommand(cmdIdx++, "String -> Base64/Gzip", B64GzipPayloadMenu);
             PluginBase.SetCommand(cmdIdx++, "---", null);
+            PluginBase.SetCommand(cmdIdx++, "Blob -> String", BlobStringMenu);
+            PluginBase.SetCommand(cmdIdx++, "---", null);
             PluginBase.SetCommand(cmdIdx++, "Detect Indentation", DetectMenu);
             PluginBase.SetCommand(cmdIdx++, "Set Tabs", SetTabsMenu);
             PluginBase.SetCommand(cmdIdx++, "Set Spaces", SetSpacesMenu);
@@ -244,6 +247,11 @@ namespace NppPrettyPrint
         internal static void B64GzipPayloadMenu()
         {
             FormatData(FormatType.B64GzipPayload);
+        }
+
+        internal static void BlobStringMenu()
+        {
+            FormatData(FormatType.BlobString);
         }
 
         internal static void DetectMenu()
@@ -341,43 +349,11 @@ namespace NppPrettyPrint
                 }
 
                 string npOut = "";
-                var view = GetViewSettings(isSel);
-                if (fType == FormatType.PrettyJson)
-                {
-                    npOut = JsonFormatter.PrettyJson(npText, new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
-                    SetLangType((int)LangType.L_JSON);
-                }
-                else if (fType == FormatType.PrettyJsonSorted)
-                {
-                    npOut = JsonFormatter.PrettyJsonSorted(npText, new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
-                    SetLangType((int)LangType.L_JSON);
-                }
-                else if (fType == FormatType.MiniJson)
-                {
-                    npOut = JsonFormatter.MiniJson(npText);
-                    SetLangType((int)LangType.L_JSON);
-                }
-                else if (fType == FormatType.ValidateJson)
+                if (fType == FormatType.ValidateJson)
                 {
                     JsonFormatter.ValidateJson(npText);
                     MessageBox.Show("JSON successfully validated  :-)");
                     return;
-                }
-                else if (fType == FormatType.PrettyXml)
-                {
-                    npOut = XmlFormatter.PrettyXml(npText, new XmlFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode, IsSelection = view.IsSelection });
-                    SetLangType((int)LangType.L_XML);
-                }
-                else if (fType == FormatType.PrettyXmlSorted)
-                {
-                    npOut = XmlFormatter.PrettyXmlSorted(npText, new XmlFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode, IsSelection = view.IsSelection },
-                        XmlSortExcludeAttributeValues.ValToString().Split(new string[] { XmlSortExcludeValueDelimiter.ValToString() }, StringSplitOptions.RemoveEmptyEntries));
-                    SetLangType((int)LangType.L_XML);
-                }
-                else if (fType == FormatType.MiniXml)
-                {
-                    npOut = XmlFormatter.MiniXml(npText, new XmlFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode, IsSelection = view.IsSelection });
-                    SetLangType((int)LangType.L_XML);
                 }
                 else if (fType == FormatType.ValidateXml)
                 {
@@ -385,23 +361,9 @@ namespace NppPrettyPrint
                     MessageBox.Show("XML successfully validated  :-)");
                     return;
                 }
-                else if (fType == FormatType.B64GzipString)
-                {
-                    npOut = Base64GzipConverter.ConvertToString(npText);
-                }
-                else if (fType == FormatType.B64GzipPrettyJson)
-                {
-                    npOut = JsonFormatter.PrettyJson(new StringBuilder(Base64GzipConverter.ConvertToString(npText)),
-                        new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
-                    SetLangType((int)LangType.L_JSON);
-                }
-                else if (fType == FormatType.B64GzipPayload)
-                {
-                    npOut = Base64GzipConverter.ConvertToPayload(npText);
-                }
                 else
                 {
-                    throw new Exception("Invalid command.");
+                    npOut = FormatStringData(npText, fType, isSel);
                 }
 
                 SciMsg setMsg;
@@ -429,6 +391,67 @@ namespace NppPrettyPrint
                 //GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized);
                 GC.Collect();
             }
+        }
+
+        internal static string FormatStringData(StringBuilder npText, FormatType fType, bool isSel)
+        {
+            string npOut = "";
+            var view = GetViewSettings(isSel);
+            if (fType == FormatType.PrettyJson)
+            {
+                npOut = JsonFormatter.PrettyJson(npText, new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
+                SetLangType((int)LangType.L_JSON);
+            }
+            else if (fType == FormatType.PrettyJsonSorted)
+            {
+                npOut = JsonFormatter.PrettyJsonSorted(npText, new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
+                SetLangType((int)LangType.L_JSON);
+            }
+            else if (fType == FormatType.MiniJson)
+            {
+                npOut = JsonFormatter.MiniJson(npText);
+                SetLangType((int)LangType.L_JSON);
+            }
+            else if (fType == FormatType.PrettyXml)
+            {
+                npOut = XmlFormatter.PrettyXml(npText, new XmlFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode, IsSelection = view.IsSelection });
+                SetLangType((int)LangType.L_XML);
+            }
+            else if (fType == FormatType.PrettyXmlSorted)
+            {
+                npOut = XmlFormatter.PrettyXmlSorted(npText, new XmlFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode, IsSelection = view.IsSelection },
+                    XmlSortExcludeAttributeValues.ValToString().Split(new string[] { XmlSortExcludeValueDelimiter.ValToString() }, StringSplitOptions.RemoveEmptyEntries));
+                SetLangType((int)LangType.L_XML);
+            }
+            else if (fType == FormatType.MiniXml)
+            {
+                npOut = XmlFormatter.MiniXml(npText, new XmlFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode, IsSelection = view.IsSelection });
+                SetLangType((int)LangType.L_XML);
+            }
+            else if (fType == FormatType.B64GzipString)
+            {
+                npOut = Base64GzipConverter.ConvertToString(npText);
+            }
+            else if (fType == FormatType.B64GzipPrettyJson)
+            {
+                npOut = JsonFormatter.PrettyJson(new StringBuilder(Base64GzipConverter.ConvertToString(npText)),
+                    new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
+                SetLangType((int)LangType.L_JSON);
+            }
+            else if (fType == FormatType.B64GzipPayload)
+            {
+                npOut = Base64GzipConverter.ConvertToPayload(npText);
+            }
+            else if (fType == FormatType.BlobString)
+            {
+                npOut = BlobConverter.ConvertToString(npText);
+            }
+            else
+            {
+                throw new Exception("Invalid command.");
+            }
+
+            return npOut;
         }
         #endregion
 
