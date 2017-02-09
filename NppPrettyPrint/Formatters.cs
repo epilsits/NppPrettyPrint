@@ -131,7 +131,7 @@ namespace Formatters
 
         public static void ValidateXml(StringBuilder sIn)
         {
-            var element = XDocument.Parse(sIn.ToString());
+            XDocument.Parse(sIn.ToString());
         }
     }
 }
