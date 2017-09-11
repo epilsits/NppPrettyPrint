@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("zer0dev")]
 [assembly: AssemblyProduct("NppPrettyPrint")]
-[assembly: AssemblyCopyright("Copyright © zer0dev 2016")]
+[assembly: AssemblyCopyright("Copyright © zer0dev 2017")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

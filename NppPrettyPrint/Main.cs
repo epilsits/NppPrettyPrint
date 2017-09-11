@@ -46,12 +46,13 @@ namespace NppPrettyPrint
             B64GzipString,
             B64GzipPrettyJson,
             B64GzipPayload,
-            BlobString
+            BlobString,
+            BlobPayload
         }
 
         internal struct BufferInfo
         {
-            internal int Id;
+            internal IntPtr Id;
             internal string Path;
             internal int UseTabs;
         }
@@ -64,7 +65,7 @@ namespace NppPrettyPrint
             public bool IsSelection;
         }
 
-        internal static Dictionary<int, BufferInfo> FileCache = new Dictionary<int, BufferInfo>();
+        internal static Dictionary<IntPtr, BufferInfo> FileCache = new Dictionary<IntPtr, BufferInfo>();
 
         public sealed class EolMode
         {
@@ -114,26 +115,26 @@ namespace NppPrettyPrint
             // { ... }
 
             uint code = notification.Header.Code;
-            uint idFrom = notification.Header.IdFrom;
+            IntPtr idFrom = notification.Header.IdFrom;
             if (code == (uint)NppMsg.NPPN_READY)
             {
                 OnPluginReady();
             }
             else if (code == (uint)NppMsg.NPPN_BUFFERACTIVATED)
             {
-                OnBufferActivated((int)idFrom);
+                OnBufferActivated(idFrom);
             }
             else if (code == (uint)NppMsg.NPPN_FILESAVED)
             {
-                OnFileSaved((int)idFrom);
+                OnFileSaved(idFrom);
             }
             else if (code == (uint)NppMsg.NPPN_FILECLOSED)
             {
-                OnFileClosed((int)idFrom);
+                OnFileClosed(idFrom);
             }
             else if (code == (uint)NppMsg.NPPN_LANGCHANGED)
             {
-                OnLangChanged((int)idFrom);
+                OnLangChanged(idFrom);
             }
         }
 
@@ -165,6 +166,7 @@ namespace NppPrettyPrint
             PluginBase.SetCommand(cmdIdx++, "String -> Base64/Gzip", B64GzipPayloadMenu);
             PluginBase.SetCommand(cmdIdx++, "---", null);
             PluginBase.SetCommand(cmdIdx++, "Blob -> String", BlobStringMenu);
+            PluginBase.SetCommand(cmdIdx++, "String -> Blob", BlobPayloadMenu);
             PluginBase.SetCommand(cmdIdx++, "---", null);
             PluginBase.SetCommand(cmdIdx++, "Detect Indentation", DetectMenu);
             PluginBase.SetCommand(cmdIdx++, "Set Tabs", SetTabsMenu);
@@ -254,9 +256,14 @@ namespace NppPrettyPrint
             FormatData(FormatType.BlobString);
         }
 
+        internal static void BlobPayloadMenu()
+        {
+            FormatData(FormatType.BlobPayload);
+        }
+
         internal static void DetectMenu()
         {
-            int id = GetActiveBuffer();
+            IntPtr id = GetActiveBuffer();
             RemoveFileFromCache(id);
             GuessIndentation(id, true);
 
@@ -268,17 +275,17 @@ namespace NppPrettyPrint
 
         internal static void SetTabsMenu()
         {
-            int id = GetActiveBuffer();
+            IntPtr id = GetActiveBuffer();
             var buff = GetBufferInfo(id, 1);
-            setUseTabs(1);
+            SetUseTabs(1);
             FileCache[id] = buff;
         }
 
         internal static void SetSpacesMenu()
         {
-            int id = GetActiveBuffer();
+            IntPtr id = GetActiveBuffer();
             var buff = GetBufferInfo(id, 0);
-            setUseTabs(0);
+            SetUseTabs(0);
             FileCache[id] = buff;
         }
 
@@ -430,10 +437,16 @@ namespace NppPrettyPrint
             }
             else if (fType == FormatType.B64GzipString)
             {
+                if (npText.ToString(0, 5).StartsWith("Data=", StringComparison.OrdinalIgnoreCase))
+                    npText.Remove(0, 5);
+                
                 npOut = Base64GzipConverter.ConvertToString(npText);
             }
             else if (fType == FormatType.B64GzipPrettyJson)
             {
+                if (npText.ToString(0, 5).StartsWith("Data=", StringComparison.OrdinalIgnoreCase))
+                    npText.Remove(0, 5);
+
                 npOut = JsonFormatter.PrettyJson(new StringBuilder(Base64GzipConverter.ConvertToString(npText)),
                     new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
                 SetLangType((int)LangType.L_JSON);
@@ -445,6 +458,10 @@ namespace NppPrettyPrint
             else if (fType == FormatType.BlobString)
             {
                 npOut = BlobConverter.ConvertToString(npText);
+            }
+            else if (fType == FormatType.BlobPayload)
+            {
+                npOut = BlobConverter.ConvertToPayload(npText);
             }
             else
             {
@@ -461,7 +478,7 @@ namespace NppPrettyPrint
             int tabWidth = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETTABWIDTH, 0, 0);
             var eolMode = (EolMode)(int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETEOLMODE, 0, 0);
 
-            int id = GetActiveBuffer();
+            IntPtr id = GetActiveBuffer();
             bool useTabs;
             if (FileCache.ContainsKey(id))
                 useTabs = Convert.ToBoolean(FileCache[id].UseTabs);
@@ -504,7 +521,7 @@ namespace NppPrettyPrint
                 Win32.MF_BYCOMMAND | (EnableAutoDetect ? Win32.MF_CHECKED : Win32.MF_UNCHECKED));
         }
 
-        internal static BufferInfo GetBufferInfo(int id, int useTabs = 0)
+        internal static BufferInfo GetBufferInfo(IntPtr id, int useTabs = 0)
         {
             var path = new StringBuilder(Win32.MAX_PATH);
             if ((int)Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_GETFULLPATHFROMBUFFERID, id, path) == -1)
@@ -515,12 +532,12 @@ namespace NppPrettyPrint
             return new BufferInfo() { Id = id, Path = path.ToString(), UseTabs = useTabs };
         }
 
-        internal static int GetActiveBuffer()
+        internal static IntPtr GetActiveBuffer()
         {
-            return (int)Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_GETCURRENTBUFFERID, 0, 0);
+            return Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_GETCURRENTBUFFERID, 0, 0);
         }
 
-        internal static void setUseTabs(int useTabs)
+        internal static void SetUseTabs(int useTabs)
         {
             Win32.SendMessage(CurScintilla, SciMsg.SCI_SETUSETABS, useTabs, 0);
         }
@@ -530,12 +547,12 @@ namespace NppPrettyPrint
             Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_SETCURRENTLANGTYPE, 0, langType);
         }
 
-        internal static void GuessIndentation(int id, bool force = false)
+        internal static void GuessIndentation(IntPtr id, bool force = false)
         {
             BufferInfo buff;
             if (FileCache.TryGetValue(id, out buff))
             {
-                setUseTabs(buff.UseTabs);
+                SetUseTabs(buff.UseTabs);
                 return;
             }
 
@@ -581,14 +598,14 @@ namespace NppPrettyPrint
                         buff.UseTabs = 0;
 
                     FileCache[id] = buff;
-                    setUseTabs(buff.UseTabs);
+                    SetUseTabs(buff.UseTabs);
                 }
 
                 //MessageBox.Show(string.Format("Lines: {0}, count: {1}, tabs: {2}\nFile: {3}", numLines, wsLines, tabLines, buff.path));
             }
         }
 
-        internal static void FileSaved(int id)
+        internal static void FileSaved(IntPtr id)
         {
             var buff = GetBufferInfo(id);
             if (string.Equals(Path.GetFullPath(buff.Path), Path.GetFullPath(IniFilePath), StringComparison.OrdinalIgnoreCase))
@@ -601,12 +618,12 @@ namespace NppPrettyPrint
                 return;
 
             RemoveFileFromCache(id);
-            int activeBuf = GetActiveBuffer();
+            IntPtr activeBuf = GetActiveBuffer();
             if (activeBuf == id)
                 GuessIndentation(id);
         }
 
-        internal static void RemoveFileFromCache(int id)
+        internal static void RemoveFileFromCache(IntPtr id)
         {
             FileCache.Remove(id);
         }
@@ -625,26 +642,26 @@ namespace NppPrettyPrint
             //Win32Extensions.AppendMenu(submenu, Win32Extensions.MenuFlags.MF_STRING, PluginBase._funcItems.Items[SubmenuItem]._cmdID, "Sub menu item2");
         }
 
-        internal static void OnBufferActivated(int id)
+        internal static void OnBufferActivated(IntPtr id)
         {
             CurScintilla = PluginBase.GetCurrentScintilla();
             GuessIndentation(id);
         }
 
-        internal static void OnFileSaved(int id)
+        internal static void OnFileSaved(IntPtr id)
         {
             FileSaved(id);
         }
 
-        internal static void OnFileClosed(int id)
+        internal static void OnFileClosed(IntPtr id)
         {
             RemoveFileFromCache(id);
         }
 
-        internal static void OnLangChanged(int id)
+        internal static void OnLangChanged(IntPtr id)
         {
             if (FileCache.ContainsKey(id))
-                setUseTabs(FileCache[id].UseTabs);
+                SetUseTabs(FileCache[id].UseTabs);
         }
         #endregion
     }
