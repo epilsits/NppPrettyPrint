@@ -6,5 +6,5 @@
     cause the file to be unrecognizable by the program.
 -->
 <GenericObjectDataSource DisplayName="SettingsDialog" Version="1.0" xmlns="urn:schemas-microsoft-com:xml-msdatasource">
-   <TypeInfo>NppPrettyPrint.SettingsDialog, NppPrettyPrint, Version=1.0.0.32429, Culture=neutral, PublicKeyToken=null</TypeInfo>
+   <TypeInfo>NppPrettyPrint.SettingsDialog, NppPrettyPrint, Version=1.0.0.1542, Culture=neutral, PublicKeyToken=null</TypeInfo>
 </GenericObjectDataSource>

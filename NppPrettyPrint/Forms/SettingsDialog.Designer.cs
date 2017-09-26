@@ -35,6 +35,7 @@
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.label4 = new System.Windows.Forms.Label();
             this.maxCharsPerLine = new System.Windows.Forms.NumericUpDown();
+            this.settingsDialogBindingSource = new System.Windows.Forms.BindingSource(this.components);
             this.label3 = new System.Windows.Forms.Label();
             this.minWhitespaceLines = new System.Windows.Forms.NumericUpDown();
             this.label2 = new System.Windows.Forms.Label();
@@ -47,20 +48,24 @@
             this.excludeAttributeValues = new System.Windows.Forms.TextBox();
             this.label5 = new System.Windows.Forms.Label();
             this.settingsToolTips = new System.Windows.Forms.ToolTip(this.components);
-            this.settingsDialogBindingSource = new System.Windows.Forms.BindingSource(this.components);
+            this.numericUpDown1 = new System.Windows.Forms.NumericUpDown();
+            this.groupBox3 = new System.Windows.Forms.GroupBox();
+            this.label7 = new System.Windows.Forms.Label();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.maxCharsPerLine)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.settingsDialogBindingSource)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.minWhitespaceLines)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.maxLinesToRead)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.minLinesToRead)).BeginInit();
             this.groupBox2.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.settingsDialogBindingSource)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numericUpDown1)).BeginInit();
+            this.groupBox3.SuspendLayout();
             this.SuspendLayout();
             // 
             // ButtonSave
             // 
             this.ButtonSave.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.ButtonSave.Location = new System.Drawing.Point(260, 233);
+            this.ButtonSave.Location = new System.Drawing.Point(260, 297);
             this.ButtonSave.Name = "ButtonSave";
             this.ButtonSave.Size = new System.Drawing.Size(75, 23);
             this.ButtonSave.TabIndex = 0;
@@ -70,7 +75,7 @@
             // ButtonCancel
             // 
             this.ButtonCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.ButtonCancel.Location = new System.Drawing.Point(359, 233);
+            this.ButtonCancel.Location = new System.Drawing.Point(359, 297);
             this.ButtonCancel.Name = "ButtonCancel";
             this.ButtonCancel.Size = new System.Drawing.Size(75, 23);
             this.ButtonCancel.TabIndex = 1;
@@ -116,6 +121,10 @@
             this.maxCharsPerLine.Size = new System.Drawing.Size(48, 20);
             this.maxCharsPerLine.TabIndex = 6;
             this.settingsToolTips.SetToolTip(this.maxCharsPerLine, "Maximum number of characters to read from each line.");
+            // 
+            // settingsDialogBindingSource
+            // 
+            this.settingsDialogBindingSource.DataSource = typeof(NppPrettyPrint.SettingsDialog);
             // 
             // label3
             // 
@@ -177,7 +186,7 @@
             this.groupBox2.Controls.Add(this.label6);
             this.groupBox2.Controls.Add(this.excludeAttributeValues);
             this.groupBox2.Controls.Add(this.label5);
-            this.groupBox2.Location = new System.Drawing.Point(13, 102);
+            this.groupBox2.Location = new System.Drawing.Point(13, 166);
             this.groupBox2.Name = "groupBox2";
             this.groupBox2.Size = new System.Drawing.Size(421, 121);
             this.groupBox2.TabIndex = 3;
@@ -229,15 +238,51 @@
             this.settingsToolTips.InitialDelay = 500;
             this.settingsToolTips.ReshowDelay = 100;
             // 
-            // settingsDialogBindingSource
+            // numericUpDown1
             // 
-            this.settingsDialogBindingSource.DataSource = typeof(NppPrettyPrint.SettingsDialog);
+            this.numericUpDown1.DataBindings.Add(new System.Windows.Forms.Binding("Value", this.settingsDialogBindingSource, "ValSizeDetectThreshold", true));
+            this.numericUpDown1.Increment = new decimal(new int[] {
+            1048576,
+            0,
+            0,
+            0});
+            this.numericUpDown1.Location = new System.Drawing.Point(7, 20);
+            this.numericUpDown1.Maximum = new decimal(new int[] {
+            2147483647,
+            0,
+            0,
+            0});
+            this.numericUpDown1.Name = "numericUpDown1";
+            this.numericUpDown1.Size = new System.Drawing.Size(83, 20);
+            this.numericUpDown1.TabIndex = 0;
+            this.settingsToolTips.SetToolTip(this.numericUpDown1, "File size threshold to disable syntax highlighting.");
+            // 
+            // groupBox3
+            // 
+            this.groupBox3.Controls.Add(this.label7);
+            this.groupBox3.Controls.Add(this.numericUpDown1);
+            this.groupBox3.Location = new System.Drawing.Point(13, 102);
+            this.groupBox3.Name = "groupBox3";
+            this.groupBox3.Size = new System.Drawing.Size(421, 56);
+            this.groupBox3.TabIndex = 4;
+            this.groupBox3.TabStop = false;
+            this.groupBox3.Text = "File Size Autodetect";
+            // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Location = new System.Drawing.Point(96, 27);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(129, 13);
+            this.label7.TabIndex = 1;
+            this.label7.Text = "File size threshold in bytes";
             // 
             // SettingsDialog
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(446, 268);
+            this.ClientSize = new System.Drawing.Size(446, 330);
+            this.Controls.Add(this.groupBox3);
             this.Controls.Add(this.groupBox2);
             this.Controls.Add(this.groupBox1);
             this.Controls.Add(this.ButtonCancel);
@@ -250,12 +295,15 @@
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.maxCharsPerLine)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.settingsDialogBindingSource)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.minWhitespaceLines)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.maxLinesToRead)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.minLinesToRead)).EndInit();
             this.groupBox2.ResumeLayout(false);
             this.groupBox2.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.settingsDialogBindingSource)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.numericUpDown1)).EndInit();
+            this.groupBox3.ResumeLayout(false);
+            this.groupBox3.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -280,5 +328,8 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.BindingSource settingsDialogBindingSource;
         private System.Windows.Forms.ToolTip settingsToolTips;
+        private System.Windows.Forms.GroupBox groupBox3;
+        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.NumericUpDown numericUpDown1;
     }
 }

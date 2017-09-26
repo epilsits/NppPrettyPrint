@@ -6,7 +6,6 @@ using Kbg.NppPluginNET.PluginInfrastructure;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 
@@ -18,13 +17,16 @@ namespace NppPrettyPrint
         internal const string PluginName = "NppPrettyPrint";
         static string IniFilePath = null;
         static AutoSetting<BoolSetting, bool> EnableAutoDetect = new AutoSetting<BoolSetting, bool>(new BoolSetting("enableAutoDetect"));
+        static AutoSetting<BoolSetting, bool> EnableSizeDetect = new AutoSetting<BoolSetting, bool>(new BoolSetting("enableSizeDetect"));
         static AutoSetting<IntSetting, int> AutodetectMinLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinLinesToRead"));
         static AutoSetting<IntSetting, int> AutodetectMaxLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxLinesToRead"));
         static AutoSetting<IntSetting, int> AutodetectMinWhitespaceLines = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinWhitespaceLines"));
         static AutoSetting<IntSetting, int> AutodetectMaxCharsToReadPerLine = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxCharsToReadPerLine"));
+        static AutoSetting<IntSetting, int> SizeDetectThreshold = new AutoSetting<IntSetting, int>(new IntSetting("sizeDetectThreshold"));
         static AutoSetting<StringSetting, string> XmlSortExcludeAttributeValues = new AutoSetting<StringSetting, string>(new StringSetting("xmlSortExcludeAttributeValues"));
         static AutoSetting<StringSetting, string> XmlSortExcludeValueDelimiter = new AutoSetting<StringSetting, string>(new StringSetting("xmlSortExcludeValueDelimiter"));
         static int AutodetectCmdId = 0;
+        static int SizeDetectCmdId = 0;
         //static int SubmenuCmdId = 0;
         //static int SubmenuItem = 0;
         static IntPtr CurScintilla = (IntPtr)0;
@@ -59,6 +61,7 @@ namespace NppPrettyPrint
 
         internal struct ViewSettings
         {
+            public IntPtr Id;
             public int TabWidth;
             public bool UseTabs;
             public string EolMode;
@@ -94,8 +97,7 @@ namespace NppPrettyPrint
 
             public static explicit operator EolMode(int val)
             {
-                EolMode result;
-                if (Instance.TryGetValue(val, out result))
+                if (Instance.TryGetValue(val, out EolMode result))
                     return result;
                 else
                     throw new InvalidCastException();
@@ -114,11 +116,21 @@ namespace NppPrettyPrint
             // if (notification.Header.Code == (uint)SciMsg.SCNxxx)
             // { ... }
 
+            /*
+             * before load
+             * before open
+             * file opened
+             */
+
             uint code = notification.Header.Code;
             IntPtr idFrom = notification.Header.IdFrom;
             if (code == (uint)NppMsg.NPPN_READY)
             {
                 OnPluginReady();
+            }
+            else if (code == (uint)NppMsg.NPPN_FILEBEFOREOPEN)
+            {
+                OnBeforeOpen(idFrom);
             }
             else if (code == (uint)NppMsg.NPPN_BUFFERACTIVATED)
             {
@@ -142,7 +154,7 @@ namespace NppPrettyPrint
         {
             StringBuilder sbIniFilePath = new StringBuilder(Win32.MAX_PATH);
             Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_GETPLUGINSCONFIGDIR, Win32.MAX_PATH, sbIniFilePath);
-            IniFilePath = sbIniFilePath.ToString();
+            IniFilePath = Path.GetFullPath(sbIniFilePath.ToString());
             if (!Directory.Exists(IniFilePath)) Directory.CreateDirectory(IniFilePath);
             IniFilePath = Path.Combine(IniFilePath, PluginName + ".ini");
 
@@ -172,7 +184,10 @@ namespace NppPrettyPrint
             PluginBase.SetCommand(cmdIdx++, "Set Tabs", SetTabsMenu);
             PluginBase.SetCommand(cmdIdx++, "Set Spaces", SetSpacesMenu);
             AutodetectCmdId = cmdIdx++;
-            PluginBase.SetCommand(AutodetectCmdId, "Enable Autodetect", AutodetectEnableMenu, EnableAutoDetect);
+            PluginBase.SetCommand(AutodetectCmdId, "Enable Indent Autodetect", AutodetectEnableMenu, EnableAutoDetect);
+            PluginBase.SetCommand(cmdIdx++, "---", null);
+            SizeDetectCmdId = cmdIdx++;
+            PluginBase.SetCommand(SizeDetectCmdId, "Enable File Size Autodetect", SizeDetectEnableMenu, EnableSizeDetect);
             PluginBase.SetCommand(cmdIdx++, "---", null);
             PluginBase.SetCommand(cmdIdx++, "Settings...", SettingsMenu);
             //SubmenuCmdId = cmdIdx++;
@@ -296,26 +311,35 @@ namespace NppPrettyPrint
             WriteSettings();
         }
 
+        internal static void SizeDetectEnableMenu()
+        {
+            EnableSizeDetect = !EnableSizeDetect;
+            ApplySettings();
+            WriteSettings();
+        }
+
         internal static void SettingsMenu()
         {
             //Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DOOPEN, 0, IniFilePath);
             using (var settings = new SettingsDialog())
             {
-                settings.valMinLinesToRead = AutodetectMinLinesToRead;
-                settings.valMaxLinesToRead = AutodetectMaxLinesToRead;
-                settings.valMinWhitespaceLines = AutodetectMinWhitespaceLines;
-                settings.valMaxCharsPerLine = AutodetectMaxCharsToReadPerLine;
-                settings.valExcludeAttributeValues = XmlSortExcludeAttributeValues.ValToString();
-                settings.valExcludeValueDelimiter = XmlSortExcludeValueDelimiter.ValToString();
+                settings.ValMinLinesToRead = AutodetectMinLinesToRead;
+                settings.ValMaxLinesToRead = AutodetectMaxLinesToRead;
+                settings.ValMinWhitespaceLines = AutodetectMinWhitespaceLines;
+                settings.ValMaxCharsPerLine = AutodetectMaxCharsToReadPerLine;
+                settings.ValSizeDetectThreshold = SizeDetectThreshold;
+                settings.ValExcludeAttributeValues = XmlSortExcludeAttributeValues.ValToString();
+                settings.ValExcludeValueDelimiter = XmlSortExcludeValueDelimiter.ValToString();
 
                 if (DialogResult.OK == settings.ShowDialog())
                 {
-                    AutodetectMinLinesToRead.Value = settings.valMinLinesToRead;
-                    AutodetectMaxLinesToRead.Value = settings.valMaxLinesToRead;
-                    AutodetectMinWhitespaceLines.Value = settings.valMinWhitespaceLines;
-                    AutodetectMaxCharsToReadPerLine.Value = settings.valMaxCharsPerLine;
-                    XmlSortExcludeAttributeValues.Value = settings.valExcludeAttributeValues;
-                    XmlSortExcludeValueDelimiter.Value = settings.valExcludeValueDelimiter;
+                    AutodetectMinLinesToRead.Value = settings.ValMinLinesToRead;
+                    AutodetectMaxLinesToRead.Value = settings.ValMaxLinesToRead;
+                    AutodetectMinWhitespaceLines.Value = settings.ValMinWhitespaceLines;
+                    AutodetectMaxCharsToReadPerLine.Value = settings.ValMaxCharsPerLine;
+                    SizeDetectThreshold.Value = settings.ValSizeDetectThreshold;
+                    XmlSortExcludeAttributeValues.Value = settings.ValExcludeAttributeValues;
+                    XmlSortExcludeValueDelimiter.Value = settings.ValExcludeValueDelimiter;
 
                     ApplySettings();
                     WriteSettings();
@@ -333,7 +357,7 @@ namespace NppPrettyPrint
             StringBuilder npText;
             var isSel = false;
 
-            var selLen = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETSELTEXT, 0, 0);
+            int selLen = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETSELTEXT, 0, 0);
             // len is text + terminating null
             if (selLen > 1)
             {
@@ -343,7 +367,7 @@ namespace NppPrettyPrint
             }
             else
             {
-                var nLen = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETLENGTH, 0, 0);
+                int nLen = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETLENGTH, 0, 0);
                 npText = new StringBuilder(nLen + 1);
                 Win32.SendMessage(CurScintilla, SciMsg.SCI_GETTEXT, nLen + 1, npText);
             }
@@ -407,33 +431,33 @@ namespace NppPrettyPrint
             if (fType == FormatType.PrettyJson)
             {
                 npOut = JsonFormatter.PrettyJson(npText, new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
-                SetLangType((int)LangType.L_JSON);
+                CheckSetLangType(view.Id, (int)LangType.L_JSON);
             }
             else if (fType == FormatType.PrettyJsonSorted)
             {
                 npOut = JsonFormatter.PrettyJsonSorted(npText, new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
-                SetLangType((int)LangType.L_JSON);
+                CheckSetLangType(view.Id, (int)LangType.L_JSON);
             }
             else if (fType == FormatType.MiniJson)
             {
                 npOut = JsonFormatter.MiniJson(npText);
-                SetLangType((int)LangType.L_JSON);
+                CheckSetLangType(view.Id, (int)LangType.L_JSON);
             }
             else if (fType == FormatType.PrettyXml)
             {
                 npOut = XmlFormatter.PrettyXml(npText, new XmlFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode, IsSelection = view.IsSelection });
-                SetLangType((int)LangType.L_XML);
+                CheckSetLangType(view.Id, (int)LangType.L_XML);
             }
             else if (fType == FormatType.PrettyXmlSorted)
             {
                 npOut = XmlFormatter.PrettyXmlSorted(npText, new XmlFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode, IsSelection = view.IsSelection },
                     XmlSortExcludeAttributeValues.ValToString().Split(new string[] { XmlSortExcludeValueDelimiter.ValToString() }, StringSplitOptions.RemoveEmptyEntries));
-                SetLangType((int)LangType.L_XML);
+                CheckSetLangType(view.Id, (int)LangType.L_XML);
             }
             else if (fType == FormatType.MiniXml)
             {
                 npOut = XmlFormatter.MiniXml(npText, new XmlFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode, IsSelection = view.IsSelection });
-                SetLangType((int)LangType.L_XML);
+                CheckSetLangType(view.Id, (int)LangType.L_XML);
             }
             else if (fType == FormatType.B64GzipString)
             {
@@ -449,7 +473,7 @@ namespace NppPrettyPrint
 
                 npOut = JsonFormatter.PrettyJson(new StringBuilder(Base64GzipConverter.ConvertToString(npText)),
                     new JsonFormatSettings() { TabWidth = view.TabWidth, UseTabs = view.UseTabs, EolMode = view.EolMode });
-                SetLangType((int)LangType.L_JSON);
+                CheckSetLangType(view.Id, (int)LangType.L_JSON);
             }
             else if (fType == FormatType.B64GzipPayload)
             {
@@ -485,16 +509,18 @@ namespace NppPrettyPrint
             else
                 useTabs = Convert.ToBoolean((int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETUSETABS, 0, 0));
 
-            return new ViewSettings() { TabWidth = tabWidth, UseTabs = useTabs, EolMode = eolMode.Str, IsSelection = isSelection };
+            return new ViewSettings() { Id = id, TabWidth = tabWidth, UseTabs = useTabs, EolMode = eolMode.Str, IsSelection = isSelection };
         }
 
         internal static void ReadSettings()
         {
             EnableAutoDetect.Value = Win32.GetPrivateProfileInt("Settings", EnableAutoDetect, 1, IniFilePath);
+            EnableSizeDetect.Value = Win32.GetPrivateProfileInt("Settings", EnableSizeDetect, 1, IniFilePath);
             AutodetectMinLinesToRead.Value = Win32.GetPrivateProfileInt("Settings", AutodetectMinLinesToRead, 10, IniFilePath);
             AutodetectMaxLinesToRead.Value = Win32.GetPrivateProfileInt("Settings", AutodetectMaxLinesToRead, 20, IniFilePath);
             AutodetectMinWhitespaceLines.Value = Win32.GetPrivateProfileInt("Settings", AutodetectMinWhitespaceLines, 5, IniFilePath);
             AutodetectMaxCharsToReadPerLine.Value = Win32.GetPrivateProfileInt("Settings", AutodetectMaxCharsToReadPerLine, 100, IniFilePath);
+            SizeDetectThreshold.Value = Win32.GetPrivateProfileInt("Settings", SizeDetectThreshold, 5242880, IniFilePath);
 
             var sb = new StringBuilder(4096);
             Win32Extensions.GetPrivateProfileString("Settings", XmlSortExcludeAttributeValues, "true,false,yes,no,on,off", sb, sb.Capacity, IniFilePath);
@@ -507,10 +533,12 @@ namespace NppPrettyPrint
         internal static void WriteSettings()
         {
             Win32.WritePrivateProfileString("Settings", EnableAutoDetect, EnableAutoDetect.ValToString(), IniFilePath);
+            Win32.WritePrivateProfileString("Settings", EnableSizeDetect, EnableSizeDetect.ValToString(), IniFilePath);
             Win32.WritePrivateProfileString("Settings", AutodetectMinLinesToRead, AutodetectMinLinesToRead.ValToString(), IniFilePath);
             Win32.WritePrivateProfileString("Settings", AutodetectMaxLinesToRead, AutodetectMaxLinesToRead.ValToString(), IniFilePath);
             Win32.WritePrivateProfileString("Settings", AutodetectMinWhitespaceLines, AutodetectMinWhitespaceLines.ValToString(), IniFilePath);
             Win32.WritePrivateProfileString("Settings", AutodetectMaxCharsToReadPerLine, AutodetectMaxCharsToReadPerLine.ValToString(), IniFilePath);
+            Win32.WritePrivateProfileString("Settings", SizeDetectThreshold, SizeDetectThreshold.ValToString(), IniFilePath);
             Win32.WritePrivateProfileString("Settings", XmlSortExcludeAttributeValues, XmlSortExcludeAttributeValues.ValToString(), IniFilePath);
             Win32.WritePrivateProfileString("Settings", XmlSortExcludeValueDelimiter, XmlSortExcludeValueDelimiter.ValToString(), IniFilePath);
         }
@@ -519,6 +547,9 @@ namespace NppPrettyPrint
         {
             Win32.CheckMenuItem(Win32.GetMenu(PluginBase.nppData._nppHandle), PluginBase._funcItems.Items[AutodetectCmdId]._cmdID,
                 Win32.MF_BYCOMMAND | (EnableAutoDetect ? Win32.MF_CHECKED : Win32.MF_UNCHECKED));
+
+            Win32.CheckMenuItem(Win32.GetMenu(PluginBase.nppData._nppHandle), PluginBase._funcItems.Items[SizeDetectCmdId]._cmdID,
+                Win32.MF_BYCOMMAND | (EnableSizeDetect ? Win32.MF_CHECKED : Win32.MF_UNCHECKED));
         }
 
         internal static BufferInfo GetBufferInfo(IntPtr id, int useTabs = 0)
@@ -529,7 +560,7 @@ namespace NppPrettyPrint
                 throw new Exception("Invalid buffer ID.");
             }
 
-            return new BufferInfo() { Id = id, Path = path.ToString(), UseTabs = useTabs };
+            return new BufferInfo() { Id = id, Path = Path.GetFullPath(path.ToString()), UseTabs = useTabs };
         }
 
         internal static IntPtr GetActiveBuffer()
@@ -547,10 +578,20 @@ namespace NppPrettyPrint
             Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_SETCURRENTLANGTYPE, 0, langType);
         }
 
+        internal static void CheckSetLangType(IntPtr id, int langType)
+        {
+            if (!IsLargeBuffer())
+                SetLangType(langType);
+        }
+
+        internal static void SetBufferLangType(IntPtr id, int langType)
+        {
+            Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_SETBUFFERLANGTYPE, id, langType);
+        }
+
         internal static void GuessIndentation(IntPtr id, bool force = false)
         {
-            BufferInfo buff;
-            if (FileCache.TryGetValue(id, out buff))
+            if (FileCache.TryGetValue(id, out BufferInfo buff))
             {
                 SetUseTabs(buff.UseTabs);
                 return;
@@ -608,7 +649,7 @@ namespace NppPrettyPrint
         internal static void FileSaved(IntPtr id)
         {
             var buff = GetBufferInfo(id);
-            if (string.Equals(Path.GetFullPath(buff.Path), Path.GetFullPath(IniFilePath), StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(buff.Path, IniFilePath, StringComparison.OrdinalIgnoreCase))
             {
                 ReadSettings();
                 ApplySettings();
@@ -627,6 +668,35 @@ namespace NppPrettyPrint
         {
             FileCache.Remove(id);
         }
+
+        internal static bool IsLargeFile(IntPtr id)
+        {
+            if (EnableSizeDetect)
+            {
+                var buff = GetBufferInfo(id);
+                try
+                {
+                    long fileSize = new FileInfo(buff.Path).Length;
+                    if (fileSize > SizeDetectThreshold)
+                        return true;
+                }
+                catch { }
+            }
+
+            return false;
+        }
+        
+        internal static bool IsLargeBuffer()
+        {
+            if (EnableSizeDetect)
+            {
+                int nLen = (int)Win32.SendMessage(CurScintilla, SciMsg.SCI_GETLENGTH, 0, 0);
+                if (nLen > SizeDetectThreshold)
+                    return true;
+            }
+
+            return false;
+        }
         #endregion
 
         #region " Events "
@@ -640,6 +710,12 @@ namespace NppPrettyPrint
             //    Win32.MF_BYCOMMAND | (int)Win32Extensions.MenuFlags.MF_POPUP, submenu, "Sub menu2");
             //Win32Extensions.DeleteMenu(Win32.GetMenu(PluginBase.nppData._nppHandle), PluginBase._funcItems.Items[SubmenuItem]._cmdID, Win32.MF_BYCOMMAND);
             //Win32Extensions.AppendMenu(submenu, Win32Extensions.MenuFlags.MF_STRING, PluginBase._funcItems.Items[SubmenuItem]._cmdID, "Sub menu item2");
+        }
+
+        internal static void OnBeforeOpen(IntPtr id)
+        {
+            if (IsLargeFile(id))
+                SetBufferLangType(id, (int)LangType.L_TEXT);
         }
 
         internal static void OnBufferActivated(IntPtr id)

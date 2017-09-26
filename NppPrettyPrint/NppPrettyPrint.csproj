@@ -122,6 +122,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="PluginInfrastructure\DllExport\NppPlugin.DllExport.targets" />
+    <None Include="Properties\DataSources\NppPrettyPrint.Properties.Resources.datasource" />
     <None Include="Properties\DataSources\SettingsDialog.datasource" />
   </ItemGroup>
   <ItemGroup />

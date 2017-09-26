@@ -1,24 +1,16 @@
-﻿using NppPrettyPrint;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
+﻿using System.Windows.Forms;
 
 namespace NppPrettyPrint
 {
     public partial class SettingsDialog : Form
     {
-        public int valMinLinesToRead { get; set; }
-        public int valMaxLinesToRead { get; set; }
-        public int valMinWhitespaceLines { get; set; }
-        public int valMaxCharsPerLine { get; set; }
-        public string valExcludeAttributeValues { get; set; }
-        public string valExcludeValueDelimiter { get; set; }
+        public int ValMinLinesToRead { get; set; }
+        public int ValMaxLinesToRead { get; set; }
+        public int ValMinWhitespaceLines { get; set; }
+        public int ValMaxCharsPerLine { get; set; }
+        public int ValSizeDetectThreshold { get; set; }
+        public string ValExcludeAttributeValues { get; set; }
+        public string ValExcludeValueDelimiter { get; set; }
 
         public SettingsDialog()
         {
