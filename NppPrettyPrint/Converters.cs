@@ -10,7 +10,7 @@ namespace Converters
     {
         public static string ConvertToString(StringBuilder sIn)
         {
-            byte[] bIn = Convert.FromBase64String(sIn.ToString());
+            byte[] bIn = Convert.FromBase64String(sIn.ToString().Trim());
             using (var msIn = new MemoryStream(bIn))
             using (var gz = new GZipStream(msIn, CompressionMode.Decompress))
             using (var sr = new StreamReader(gz))
@@ -35,7 +35,7 @@ namespace Converters
     {
         public static string ConvertToString(StringBuilder sIn)
         {
-            byte[] bIn = StringToByteArray(sIn.ToString());
+            byte[] bIn = StringToByteArray(sIn.ToString().Trim());
             using (var msIn = new MemoryStream(bIn))
             using (var gz = new GZipStream(msIn, CompressionMode.Decompress))
             using (var sr = new StreamReader(gz))
