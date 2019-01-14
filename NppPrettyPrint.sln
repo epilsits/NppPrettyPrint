@@ -4,6 +4,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 15.0.26730.12
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NppPrettyPrint", "NppPrettyPrint\NppPrettyPrint.csproj", "{E56F6E12-089C-40ED-BCFD-923E5FA121A1}"
+	ProjectSection(ProjectDependencies) = postProject
+		{ED528AAD-0B35-4100-AB88-2DB2B617ED0D} = {ED528AAD-0B35-4100-AB88-2DB2B617ED0D}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ijsonDotNet", "..\ijsonDotNet\ijsonDotNet\ijsonDotNet.csproj", "{ED528AAD-0B35-4100-AB88-2DB2B617ED0D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +26,14 @@ Global
 		{E56F6E12-089C-40ED-BCFD-923E5FA121A1}.Release|x64.Build.0 = Release|x64
 		{E56F6E12-089C-40ED-BCFD-923E5FA121A1}.Release|x86.ActiveCfg = Release|x86
 		{E56F6E12-089C-40ED-BCFD-923E5FA121A1}.Release|x86.Build.0 = Release|x86
+		{ED528AAD-0B35-4100-AB88-2DB2B617ED0D}.Debug|x64.ActiveCfg = Debug|x64
+		{ED528AAD-0B35-4100-AB88-2DB2B617ED0D}.Debug|x64.Build.0 = Debug|x64
+		{ED528AAD-0B35-4100-AB88-2DB2B617ED0D}.Debug|x86.ActiveCfg = Debug|x86
+		{ED528AAD-0B35-4100-AB88-2DB2B617ED0D}.Debug|x86.Build.0 = Debug|x86
+		{ED528AAD-0B35-4100-AB88-2DB2B617ED0D}.Release|x64.ActiveCfg = Release|x64
+		{ED528AAD-0B35-4100-AB88-2DB2B617ED0D}.Release|x64.Build.0 = Release|x64
+		{ED528AAD-0B35-4100-AB88-2DB2B617ED0D}.Release|x86.ActiveCfg = Release|x86
+		{ED528AAD-0B35-4100-AB88-2DB2B617ED0D}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

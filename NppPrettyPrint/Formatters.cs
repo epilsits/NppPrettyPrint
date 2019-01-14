@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ijsonDotNet;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,6 +10,50 @@ using System.Xml.Linq;
 
 namespace Formatters
 {
+    public struct JsonFormatSettings
+    {
+        public int TabWidth;
+        public bool UseTabs;
+        public string EolMode;
+    }
+
+    public class JsonFormatter
+    {
+        public static string PrettyJson(StringBuilder sIn, JsonFormatSettings formatSettings, bool sorted = false)
+        {
+            string indent = "\t";
+            if (!formatSettings.UseTabs)
+                indent = "".PadRight(formatSettings.TabWidth);
+
+            using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(sIn.ToString())))
+            using (var sr = new StreamReader(ms))
+                if (sorted)
+                    return new ijsonParser().PrettySorted(sr, indent, formatSettings.EolMode);
+                else
+                    return new ijsonParser().Pretty(sr, indent, formatSettings.EolMode);
+        }
+
+        public static string PrettyJsonSorted(StringBuilder sIn, JsonFormatSettings formatSettings)
+        {
+            return PrettyJson(sIn, formatSettings, true);
+        }
+
+        public static string MiniJson(StringBuilder sIn)
+        {
+            using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(sIn.ToString())))
+            using (var sr = new StreamReader(ms))
+                return new ijsonParser().Minify(sr);
+        }
+
+        public static void ValidateJson(StringBuilder sIn)
+        {
+            using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(sIn.ToString())))
+            using (var sr = new StreamReader(ms))
+                foreach (var evt in new ijsonParser().BasicParse(sr))
+                    continue;
+        }
+    }
+
     public struct XmlFormatSettings
     {
         public int TabWidth;
@@ -19,7 +64,7 @@ namespace Formatters
 
     public class XmlFormatter
     {
-        private static LogicalComparer LogicalCompare = new LogicalComparer();
+        private static readonly LogicalComparer LogicalCompare = new LogicalComparer();
         private static List<string> exclude;
 
         private class LogicalComparer : System.Collections.Generic.IComparer<string>
@@ -40,8 +85,7 @@ namespace Formatters
 
         public static string PrettyXmlSorted(StringBuilder sIn, XmlFormatSettings formatSettings, string[] exclusions)
         {
-            exclude = new List<string>(exclusions);
-            exclude.Add("");
+            exclude = new List<string>(exclusions) { "" };
             return DoFormatXml(sIn, ref formatSettings, true, true);
         }
 
@@ -53,8 +97,10 @@ namespace Formatters
         private static string DoFormatXml(StringBuilder sIn, ref XmlFormatSettings formatSettings, bool doPretty, bool sorted)
         {
             var doc = XDocument.Parse(sIn.ToString());
-            var settings = new XmlWriterSettings();
-            settings.OmitXmlDeclaration = (formatSettings.IsSelection || (doc.Declaration == null));
+            var settings = new XmlWriterSettings()
+            {
+                OmitXmlDeclaration = formatSettings.IsSelection || (doc.Declaration == null)
+            };
             if (!formatSettings.IsSelection && doc.Declaration != null)
             {
                 string enc = doc.Declaration.Encoding;

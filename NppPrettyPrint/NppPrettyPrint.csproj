@@ -10,7 +10,7 @@
     <RootNamespace>NppPrettyPrint</RootNamespace>
     <AssemblyName>NppPrettyPrint</AssemblyName>
     <OutputPath>bin\Debug\</OutputPath>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
     <OldToolsVersion>3.5</OldToolsVersion>
@@ -57,6 +57,9 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
   </PropertyGroup>
+  <PropertyGroup>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System" />
@@ -69,13 +72,12 @@
   <ItemGroup>
     <Compile Include="Configuration.cs" />
     <Compile Include="Converters.cs" />
+    <Compile Include="FormatCommands.cs" />
     <Compile Include="Formatters.cs" />
-    <Compile Include="ijsonDotNet\Common.cs" />
-    <Compile Include="ijsonDotNet\EnumsAndTypes.cs" />
-    <Compile Include="ijsonDotNet\Formatter.cs" />
-    <Compile Include="ijsonDotNet\ijsonDotNet.cs" />
-    <Compile Include="ijsonDotNet\ObjectBuilder.cs" />
     <Compile Include="Main.cs" />
+    <Compile Include="NppCommands.cs" />
+    <Compile Include="NppEvents.cs" />
+    <Compile Include="NppSettings.cs" />
     <Compile Include="PluginInfrastructure\ClikeStringArray.cs" />
     <Compile Include="PluginInfrastructure\DllExport\DllExportAttribute.cs" />
     <Compile Include="PluginInfrastructure\Docking_h.cs" />
@@ -125,7 +127,14 @@
     <None Include="Properties\DataSources\NppPrettyPrint.Properties.Resources.datasource" />
     <None Include="Properties\DataSources\SettingsDialog.datasource" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\..\ijsonDotNet\ijsonDotNet\ijsonDotNet.csproj">
+      <Project>{ed528aad-0b35-4100-ab88-2db2b617ed0d}</Project>
+      <Name>ijsonDotNet</Name>
+      <EmbedInteropTypes>False</EmbedInteropTypes>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="$(MSBuildProjectDirectory)\PluginInfrastructure\DllExport\NppPlugin.DllExport.targets" />
   <PropertyGroup>
