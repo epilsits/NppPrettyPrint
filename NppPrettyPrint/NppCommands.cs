@@ -13,8 +13,15 @@ namespace NppPrettyPrint
         internal int UseTabs;
     }
 
-    static class NppCommands
+    internal class NppCommands
     {
+        internal readonly NppSettings nps;
+
+        internal NppCommands(NppSettings s)
+        {
+            nps = s;
+        }
+
         internal struct ViewSettings
         {
             public IntPtr Id;
@@ -58,22 +65,22 @@ namespace NppPrettyPrint
             }
         }
 
-        internal static ViewSettings GetViewSettings(bool isSelection = false)
+        internal ViewSettings GetViewSettings(bool isSelection = false)
         {
-            int tabWidth = (int)Win32.SendMessage(NppSettings.CurScintilla, SciMsg.SCI_GETTABWIDTH, 0, 0);
-            var eolMode = (EolMode)(int)Win32.SendMessage(NppSettings.CurScintilla, SciMsg.SCI_GETEOLMODE, 0, 0);
+            int tabWidth = (int)Win32.SendMessage(nps.CurScintilla, SciMsg.SCI_GETTABWIDTH, 0, 0);
+            var eolMode = (EolMode)(int)Win32.SendMessage(nps.CurScintilla, SciMsg.SCI_GETEOLMODE, 0, 0);
 
             IntPtr id = GetActiveBuffer();
             bool useTabs;
             if (Main.FileCache.ContainsKey(id))
                 useTabs = Convert.ToBoolean(Main.FileCache[id].UseTabs);
             else
-                useTabs = Convert.ToBoolean((int)Win32.SendMessage(NppSettings.CurScintilla, SciMsg.SCI_GETUSETABS, 0, 0));
+                useTabs = Convert.ToBoolean((int)Win32.SendMessage(nps.CurScintilla, SciMsg.SCI_GETUSETABS, 0, 0));
 
             return new ViewSettings() { Id = id, TabWidth = tabWidth, UseTabs = useTabs, EolMode = eolMode.Str, IsSelection = isSelection };
         }
         
-        internal static BufferInfo GetBufferInfo(IntPtr id, int useTabs = 0)
+        internal BufferInfo GetBufferInfo(IntPtr id, int useTabs = 0)
         {
             var path = new StringBuilder(Win32.MAX_PATH);
             if ((int)Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_GETFULLPATHFROMBUFFERID, id, path) == -1)
@@ -84,33 +91,33 @@ namespace NppPrettyPrint
             return new BufferInfo() { Id = id, Path = Path.GetFullPath(path.ToString()), UseTabs = useTabs };
         }
 
-        internal static IntPtr GetActiveBuffer()
+        internal IntPtr GetActiveBuffer()
         {
             return Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_GETCURRENTBUFFERID, 0, 0);
         }
 
-        internal static void SetUseTabs(int useTabs)
+        internal void SetUseTabs(int useTabs)
         {
-            Win32.SendMessage(NppSettings.CurScintilla, SciMsg.SCI_SETUSETABS, useTabs, 0);
+            Win32.SendMessage(nps.CurScintilla, SciMsg.SCI_SETUSETABS, useTabs, 0);
         }
 
-        internal static void SetLangType(int langType)
+        internal void SetLangType(int langType)
         {
             Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_SETCURRENTLANGTYPE, 0, langType);
         }
 
-        internal static void CheckSetLangType(IntPtr id, int langType)
+        internal void CheckSetLangType(IntPtr id, int langType)
         {
             if (!IsLargeBuffer())
                 SetLangType(langType);
         }
 
-        internal static void SetBufferLangType(IntPtr id, int langType)
+        internal void SetBufferLangType(IntPtr id, int langType)
         {
             Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_SETBUFFERLANGTYPE, id, langType);
         }
 
-        internal static void GuessIndentation(IntPtr id, bool force = false)
+        internal void GuessIndentation(IntPtr id, bool force = false)
         {
             if (Main.FileCache.TryGetValue(id, out BufferInfo buff))
             {
@@ -118,30 +125,30 @@ namespace NppPrettyPrint
                 return;
             }
 
-            if (!NppSettings.EnableAutoDetect && !force)
+            if (!nps.EnableAutoDetect && !force)
                 return;
 
-            int numLines = (int)Win32.SendMessage(NppSettings.CurScintilla, SciMsg.SCI_GETLINECOUNT, 0, 0);
-            if (numLines >= NppSettings.AutodetectMinLinesToRead)
+            int numLines = (int)Win32.SendMessage(nps.CurScintilla, SciMsg.SCI_GETLINECOUNT, 0, 0);
+            if (numLines >= nps.AutodetectMinLinesToRead)
             {
                 int wsLines = 0;
                 int tabLines = 0;
                 var ttf = new TextToFind(0, 0, @"^\s+");
-                for (var i = 0; i < Math.Min(NppSettings.AutodetectMaxLinesToRead, numLines); i++)
+                for (var i = 0; i < Math.Min(nps.AutodetectMaxLinesToRead, numLines); i++)
                 {
-                    int startPos = (int)Win32.SendMessage(NppSettings.CurScintilla, SciMsg.SCI_POSITIONFROMLINE, i, 0);
-                    int endPos = (int)Win32.SendMessage(NppSettings.CurScintilla, SciMsg.SCI_GETLINEENDPOSITION, i, 0); // excl EOL chars
+                    int startPos = (int)Win32.SendMessage(nps.CurScintilla, SciMsg.SCI_POSITIONFROMLINE, i, 0);
+                    int endPos = (int)Win32.SendMessage(nps.CurScintilla, SciMsg.SCI_GETLINEENDPOSITION, i, 0); // excl EOL chars
                     int lineLen = endPos - startPos;
                     if (lineLen > 0)
                     {
-                        ttf.chrg = new CharacterRange(startPos, startPos + Math.Min(lineLen, NppSettings.AutodetectMaxCharsToReadPerLine));
-                        int find = (int)Win32.SendMessage(NppSettings.CurScintilla, SciMsg.SCI_FINDTEXT, (int)(SciMsg.SCFIND_REGEXP | SciMsg.SCFIND_CXX11REGEX), ttf.NativePointer);
+                        ttf.chrg = new CharacterRange(startPos, startPos + Math.Min(lineLen, nps.AutodetectMaxCharsToReadPerLine));
+                        int find = (int)Win32.SendMessage(nps.CurScintilla, SciMsg.SCI_FINDTEXT, (int)(SciMsg.SCFIND_REGEXP | SciMsg.SCFIND_CXX11REGEX), ttf.NativePointer);
                         if (find != -1)
                         {
                             wsLines++;
                             var rgFind = ttf.chrgText;
                             var tr = new TextRange(rgFind, rgFind.cpMax - rgFind.cpMin + 1);
-                            Win32.SendMessage(NppSettings.CurScintilla, SciMsg.SCI_GETTEXTRANGE, 0, tr.NativePointer);
+                            Win32.SendMessage(nps.CurScintilla, SciMsg.SCI_GETTEXTRANGE, 0, tr.NativePointer);
                             if (tr.lpstrText.Contains("\t"))
                                 tabLines++;
 
@@ -151,7 +158,7 @@ namespace NppPrettyPrint
                     }
                 }
 
-                if (wsLines >= NppSettings.AutodetectMinWhitespaceLines)
+                if (wsLines >= nps.AutodetectMinWhitespaceLines)
                 {
                     buff = GetBufferInfo(id);
                     if (tabLines >= (wsLines - tabLines))
@@ -167,16 +174,16 @@ namespace NppPrettyPrint
             }
         }
 
-        internal static void FileSaved(IntPtr id)
+        internal void FileSaved(IntPtr id)
         {
             var buff = GetBufferInfo(id);
-            if (string.Equals(buff.Path, NppSettings.IniFilePath, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(buff.Path, nps.IniFilePath, StringComparison.OrdinalIgnoreCase))
             {
-                NppSettings.ReadSettings();
-                NppSettings.ApplySettings();
+                nps.ReadSettings();
+                nps.ApplySettings();
             }
 
-            if (!NppSettings.EnableAutoDetect)
+            if (!nps.EnableAutoDetect)
                 return;
 
             RemoveFileFromCache(id);
@@ -185,20 +192,20 @@ namespace NppPrettyPrint
                 GuessIndentation(id);
         }
 
-        internal static void RemoveFileFromCache(IntPtr id)
+        internal void RemoveFileFromCache(IntPtr id)
         {
             Main.FileCache.Remove(id);
         }
 
-        internal static bool IsLargeFile(IntPtr id)
+        internal bool IsLargeFile(IntPtr id)
         {
-            if (NppSettings.EnableSizeDetect)
+            if (nps.EnableSizeDetect)
             {
                 var buff = GetBufferInfo(id);
                 try
                 {
                     long fileSize = new FileInfo(buff.Path).Length;
-                    if (fileSize > NppSettings.SizeDetectThreshold)
+                    if (fileSize > nps.SizeDetectThreshold)
                         return true;
                 }
                 catch { }
@@ -207,12 +214,12 @@ namespace NppPrettyPrint
             return false;
         }
 
-        internal static bool IsLargeBuffer()
+        internal bool IsLargeBuffer()
         {
-            if (NppSettings.EnableSizeDetect)
+            if (nps.EnableSizeDetect)
             {
-                int nLen = (int)Win32.SendMessage(NppSettings.CurScintilla, SciMsg.SCI_GETLENGTH, 0, 0);
-                if (nLen > NppSettings.SizeDetectThreshold)
+                int nLen = (int)Win32.SendMessage(nps.CurScintilla, SciMsg.SCI_GETLENGTH, 0, 0);
+                if (nLen > nps.SizeDetectThreshold)
                     return true;
             }
 

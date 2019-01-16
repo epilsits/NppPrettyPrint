@@ -5,28 +5,28 @@ using System.Text;
 
 namespace NppPrettyPrint
 {
-    class NppSettings
+    internal class NppSettings
     {
-        internal static string IniFilePath = null;
-        internal static AutoSetting<BoolSetting, bool> EnableAutoDetect = new AutoSetting<BoolSetting, bool>(new BoolSetting("enableAutoDetect"));
-        internal static AutoSetting<BoolSetting, bool> EnableSizeDetect = new AutoSetting<BoolSetting, bool>(new BoolSetting("enableSizeDetect"));
-        internal static AutoSetting<IntSetting, int> AutodetectMinLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinLinesToRead"));
-        internal static AutoSetting<IntSetting, int> AutodetectMaxLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxLinesToRead"));
-        internal static AutoSetting<IntSetting, int> AutodetectMinWhitespaceLines = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinWhitespaceLines"));
-        internal static AutoSetting<IntSetting, int> AutodetectMaxCharsToReadPerLine = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxCharsToReadPerLine"));
-        internal static AutoSetting<IntSetting, int> SizeDetectThreshold = new AutoSetting<IntSetting, int>(new IntSetting("sizeDetectThreshold"));
-        internal static AutoSetting<StringSetting, string> XmlSortExcludeAttributeValues = new AutoSetting<StringSetting, string>(new StringSetting("xmlSortExcludeAttributeValues"));
-        internal static AutoSetting<StringSetting, string> XmlSortExcludeValueDelimiter = new AutoSetting<StringSetting, string>(new StringSetting("xmlSortExcludeValueDelimiter"));
-        internal static int AutodetectCmdId = 0;
-        internal static int SizeDetectCmdId = 0;
+        internal string IniFilePath = null;
+        internal AutoSetting<BoolSetting, bool> EnableAutoDetect = new AutoSetting<BoolSetting, bool>(new BoolSetting("enableAutoDetect"));
+        internal AutoSetting<BoolSetting, bool> EnableSizeDetect = new AutoSetting<BoolSetting, bool>(new BoolSetting("enableSizeDetect"));
+        internal AutoSetting<IntSetting, int> AutodetectMinLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinLinesToRead"));
+        internal AutoSetting<IntSetting, int> AutodetectMaxLinesToRead = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxLinesToRead"));
+        internal AutoSetting<IntSetting, int> AutodetectMinWhitespaceLines = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMinWhitespaceLines"));
+        internal AutoSetting<IntSetting, int> AutodetectMaxCharsToReadPerLine = new AutoSetting<IntSetting, int>(new IntSetting("autodetectMaxCharsToReadPerLine"));
+        internal AutoSetting<IntSetting, int> SizeDetectThreshold = new AutoSetting<IntSetting, int>(new IntSetting("sizeDetectThreshold"));
+        internal AutoSetting<StringSetting, string> XmlSortExcludeAttributeValues = new AutoSetting<StringSetting, string>(new StringSetting("xmlSortExcludeAttributeValues"));
+        internal AutoSetting<StringSetting, string> XmlSortExcludeValueDelimiter = new AutoSetting<StringSetting, string>(new StringSetting("xmlSortExcludeValueDelimiter"));
+        internal int AutodetectCmdId = 0;
+        internal int SizeDetectCmdId = 0;
         //static int SubmenuCmdId = 0;
         //static int SubmenuItem = 0;
-        internal static IntPtr CurScintilla = (IntPtr)0;
+        internal IntPtr CurScintilla = (IntPtr)0;
         //static Bitmap tbBmp = Properties.Resources.star;
         //static Bitmap tbBmp_tbTab = Properties.Resources.star_bmp;
         //static Icon tbIcon = null;
 
-        internal static void ReadSettings()
+        internal void ReadSettings()
         {
             EnableAutoDetect.Value = Win32.GetPrivateProfileInt("Settings", EnableAutoDetect, 1, IniFilePath);
             EnableSizeDetect.Value = Win32.GetPrivateProfileInt("Settings", EnableSizeDetect, 1, IniFilePath);
@@ -44,7 +44,7 @@ namespace NppPrettyPrint
             XmlSortExcludeValueDelimiter.Value = sb.ToString();
         }
 
-        internal static void WriteSettings()
+        internal void WriteSettings()
         {
             Win32.WritePrivateProfileString("Settings", EnableAutoDetect, EnableAutoDetect.ValToString(), IniFilePath);
             Win32.WritePrivateProfileString("Settings", EnableSizeDetect, EnableSizeDetect.ValToString(), IniFilePath);
@@ -57,7 +57,7 @@ namespace NppPrettyPrint
             Win32.WritePrivateProfileString("Settings", XmlSortExcludeValueDelimiter, XmlSortExcludeValueDelimiter.ValToString(), IniFilePath);
         }
 
-        internal static void ApplySettings()
+        internal void ApplySettings()
         {
             Win32.CheckMenuItem(Win32.GetMenu(PluginBase.nppData._nppHandle), PluginBase._funcItems.Items[AutodetectCmdId]._cmdID,
                 Win32.MF_BYCOMMAND | (EnableAutoDetect ? Win32.MF_CHECKED : Win32.MF_UNCHECKED));

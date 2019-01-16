@@ -11,24 +11,30 @@ namespace NppPrettyPrint
     static class Main
     {
         internal const string PluginName = "NppPrettyPrint";
-
-        internal static Dictionary<IntPtr, BufferInfo> FileCache = new Dictionary<IntPtr, BufferInfo>();
+        internal static NppSettings nps;
+        internal static NppCommands npc;
+        internal static NppEvents npe;
+        internal static FormatCommands fc;
+        internal static Dictionary<IntPtr, BufferInfo> FileCache;
 
         static Main()
-        {
-            AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(LoadFromPluginSubFolder);
-        }
-
-        private static Assembly LoadFromPluginSubFolder(object sender, ResolveEventArgs args)
         {
             string pluginPath = typeof(Main).Assembly.Location;
             string pluginName = Path.GetFileNameWithoutExtension(pluginPath);
             string pluginSubFolder = Path.Combine(Path.GetDirectoryName(pluginPath), pluginName);
-            string assemblyPath = Path.Combine(pluginSubFolder, new AssemblyName(args.Name).Name + ".dll");
-            if (File.Exists(assemblyPath))
-                return Assembly.LoadFrom(assemblyPath);
-            else
-                return null;
+            AppDomain.CurrentDomain.AssemblyResolve += (object sender, ResolveEventArgs args) =>
+            {
+                string assemblyPath = Path.Combine(pluginSubFolder, new AssemblyName(args.Name).Name + ".dll");
+                if (File.Exists(assemblyPath))
+                    return Assembly.LoadFrom(assemblyPath);
+                else
+                    return null;
+            };
+            nps = new NppSettings();
+            npc = new NppCommands(nps);
+            npe = new NppEvents(nps, npc);
+            fc = new FormatCommands(nps, npc);
+            FileCache = new Dictionary<IntPtr, BufferInfo>();
         }
 
         public static void OnNotification(ScNotification notification)
@@ -52,27 +58,27 @@ namespace NppPrettyPrint
             IntPtr idFrom = notification.Header.IdFrom;
             if (code == (uint)NppMsg.NPPN_READY)
             {
-                NppEvents.OnPluginReady();
+                npe.OnPluginReady();
             }
             else if (code == (uint)NppMsg.NPPN_FILEBEFOREOPEN)
             {
-                NppEvents.OnBeforeOpen(idFrom);
+                npe.OnBeforeOpen(idFrom);
             }
             else if (code == (uint)NppMsg.NPPN_BUFFERACTIVATED)
             {
-                NppEvents.OnBufferActivated(idFrom);
+                npe.OnBufferActivated(idFrom);
             }
             else if (code == (uint)NppMsg.NPPN_FILESAVED)
             {
-                NppEvents.OnFileSaved(idFrom);
+                npe.OnFileSaved(idFrom);
             }
             else if (code == (uint)NppMsg.NPPN_FILECLOSED)
             {
-                NppEvents.OnFileClosed(idFrom);
+                npe.OnFileClosed(idFrom);
             }
             else if (code == (uint)NppMsg.NPPN_LANGCHANGED)
             {
-                NppEvents.OnLangChanged(idFrom);
+                npe.OnLangChanged(idFrom);
             }
         }
 
@@ -80,12 +86,12 @@ namespace NppPrettyPrint
         {
             StringBuilder sbIniFilePath = new StringBuilder(Win32.MAX_PATH);
             Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_GETPLUGINSCONFIGDIR, Win32.MAX_PATH, sbIniFilePath);
-            NppSettings.IniFilePath = Path.GetFullPath(sbIniFilePath.ToString());
-            if (!Directory.Exists(NppSettings.IniFilePath)) Directory.CreateDirectory(NppSettings.IniFilePath);
-            NppSettings.IniFilePath = Path.Combine(NppSettings.IniFilePath, Main.PluginName + ".ini");
+            nps.IniFilePath = Path.GetFullPath(sbIniFilePath.ToString());
+            if (!Directory.Exists(nps.IniFilePath)) Directory.CreateDirectory(nps.IniFilePath);
+            nps.IniFilePath = Path.Combine(nps.IniFilePath, Main.PluginName + ".ini");
 
-            NppSettings.ReadSettings();
-            NppSettings.WriteSettings();
+            nps.ReadSettings();
+            nps.WriteSettings();
 
             int cmdIdx = 0;
 
@@ -109,11 +115,11 @@ namespace NppPrettyPrint
             PluginBase.SetCommand(cmdIdx++, "Detect Indentation", DetectMenu);
             PluginBase.SetCommand(cmdIdx++, "Set Tabs", SetTabsMenu);
             PluginBase.SetCommand(cmdIdx++, "Set Spaces", SetSpacesMenu);
-            NppSettings.AutodetectCmdId = cmdIdx++;
-            PluginBase.SetCommand(NppSettings.AutodetectCmdId, "Enable Indent Autodetect", AutodetectEnableMenu, NppSettings.EnableAutoDetect);
+            nps.AutodetectCmdId = cmdIdx++;
+            PluginBase.SetCommand(nps.AutodetectCmdId, "Enable Indent Autodetect", AutodetectEnableMenu, nps.EnableAutoDetect);
             PluginBase.SetCommand(cmdIdx++, "---", null);
-            NppSettings.SizeDetectCmdId = cmdIdx++;
-            PluginBase.SetCommand(NppSettings.SizeDetectCmdId, "Enable File Size Autodetect", SizeDetectEnableMenu, NppSettings.EnableSizeDetect);
+            nps.SizeDetectCmdId = cmdIdx++;
+            PluginBase.SetCommand(nps.SizeDetectCmdId, "Enable File Size Autodetect", SizeDetectEnableMenu, nps.EnableSizeDetect);
             PluginBase.SetCommand(cmdIdx++, "---", null);
             PluginBase.SetCommand(cmdIdx++, "Settings...", SettingsMenu);
             //SubmenuCmdId = cmdIdx++;
@@ -139,73 +145,73 @@ namespace NppPrettyPrint
         #region " Menu functions "
         internal static void FormatPrettyJsonMenu()
         {
-            FormatCommands.FormatData(FormatType.PrettyJson);
+            fc.FormatData(FormatType.PrettyJson);
         }
 
         internal static void FormatPrettyJsonSortedMenu()
         {
-            FormatCommands.FormatData(FormatType.PrettyJsonSorted);
+            fc.FormatData(FormatType.PrettyJsonSorted);
         }
 
         internal static void FormatMiniJsonMenu()
         {
-            FormatCommands.FormatData(FormatType.MiniJson);
+            fc.FormatData(FormatType.MiniJson);
         }
 
         internal static void ValidateJsonMenu()
         {
-            FormatCommands.FormatData(FormatType.ValidateJson);
+            fc.FormatData(FormatType.ValidateJson);
         }
 
         internal static void FormatPrettyXmlMenu()
         {
-            FormatCommands.FormatData(FormatType.PrettyXml);
+            fc.FormatData(FormatType.PrettyXml);
         }
 
         internal static void FormatPrettyXmlSortedMenu()
         {
-            FormatCommands.FormatData(FormatType.PrettyXmlSorted);
+            fc.FormatData(FormatType.PrettyXmlSorted);
         }
 
         internal static void FormatMiniXmlMenu()
         {
-            FormatCommands.FormatData(FormatType.MiniXml);
+            fc.FormatData(FormatType.MiniXml);
         }
 
         internal static void ValidateXMLMenu()
         {
-            FormatCommands.FormatData(FormatType.ValidateXml);
+            fc.FormatData(FormatType.ValidateXml);
         }
 
         internal static void B64GzipStringMenu()
         {
-            FormatCommands.FormatData(FormatType.B64GzipString);
+            fc.FormatData(FormatType.B64GzipString);
         }
         internal static void B64GzipPrettyJsonMenu()
         {
-            FormatCommands.FormatData(FormatType.B64GzipPrettyJson);
+            fc.FormatData(FormatType.B64GzipPrettyJson);
         }
 
         internal static void B64GzipPayloadMenu()
         {
-            FormatCommands.FormatData(FormatType.B64GzipPayload);
+            fc.FormatData(FormatType.B64GzipPayload);
         }
 
         internal static void BlobStringMenu()
         {
-            FormatCommands.FormatData(FormatType.BlobString);
+            fc.FormatData(FormatType.BlobString);
         }
 
         internal static void BlobPayloadMenu()
         {
-            FormatCommands.FormatData(FormatType.BlobPayload);
+            fc.FormatData(FormatType.BlobPayload);
         }
 
         internal static void DetectMenu()
         {
-            IntPtr id = NppCommands.GetActiveBuffer();
-            NppCommands.RemoveFileFromCache(id);
-            NppCommands.GuessIndentation(id, true);
+            IntPtr id = npc.GetActiveBuffer();
+            npc.RemoveFileFromCache(id);
+            npc.GuessIndentation(id, true);
 
             if (FileCache.ContainsKey(id))
                 MessageBox.Show(string.Format("Set indentation settings to: {0}", (FileCache[id].UseTabs == 1) ? "Tabs" : "Spaces"), "Info");
@@ -215,32 +221,32 @@ namespace NppPrettyPrint
 
         internal static void SetTabsMenu()
         {
-            IntPtr id = NppCommands.GetActiveBuffer();
-            var buff = NppCommands.GetBufferInfo(id, 1);
-            NppCommands.SetUseTabs(1);
+            IntPtr id = npc.GetActiveBuffer();
+            var buff = npc.GetBufferInfo(id, 1);
+            npc.SetUseTabs(1);
             FileCache[id] = buff;
         }
 
         internal static void SetSpacesMenu()
         {
-            IntPtr id = NppCommands.GetActiveBuffer();
-            var buff = NppCommands.GetBufferInfo(id, 0);
-            NppCommands.SetUseTabs(0);
+            IntPtr id = npc.GetActiveBuffer();
+            var buff = npc.GetBufferInfo(id, 0);
+            npc.SetUseTabs(0);
             FileCache[id] = buff;
         }
 
         internal static void AutodetectEnableMenu()
         {
-            NppSettings.EnableAutoDetect = !NppSettings.EnableAutoDetect;
-            NppSettings.ApplySettings();
-            NppSettings.WriteSettings();
+            nps.EnableAutoDetect = !nps.EnableAutoDetect;
+            nps.ApplySettings();
+            nps.WriteSettings();
         }
 
         internal static void SizeDetectEnableMenu()
         {
-            NppSettings.EnableSizeDetect = !NppSettings.EnableSizeDetect;
-            NppSettings.ApplySettings();
-            NppSettings.WriteSettings();
+            nps.EnableSizeDetect = !nps.EnableSizeDetect;
+            nps.ApplySettings();
+            nps.WriteSettings();
         }
 
         internal static void SettingsMenu()
@@ -248,26 +254,26 @@ namespace NppPrettyPrint
             //Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DOOPEN, 0, IniFilePath);
             using (var settings = new SettingsDialog())
             {
-                settings.ValMinLinesToRead = NppSettings.AutodetectMinLinesToRead;
-                settings.ValMaxLinesToRead = NppSettings.AutodetectMaxLinesToRead;
-                settings.ValMinWhitespaceLines = NppSettings.AutodetectMinWhitespaceLines;
-                settings.ValMaxCharsPerLine = NppSettings.AutodetectMaxCharsToReadPerLine;
-                settings.ValSizeDetectThreshold = NppSettings.SizeDetectThreshold;
-                settings.ValExcludeAttributeValues = NppSettings.XmlSortExcludeAttributeValues.ValToString();
-                settings.ValExcludeValueDelimiter = NppSettings.XmlSortExcludeValueDelimiter.ValToString();
+                settings.ValMinLinesToRead = nps.AutodetectMinLinesToRead;
+                settings.ValMaxLinesToRead = nps.AutodetectMaxLinesToRead;
+                settings.ValMinWhitespaceLines = nps.AutodetectMinWhitespaceLines;
+                settings.ValMaxCharsPerLine = nps.AutodetectMaxCharsToReadPerLine;
+                settings.ValSizeDetectThreshold = nps.SizeDetectThreshold;
+                settings.ValExcludeAttributeValues = nps.XmlSortExcludeAttributeValues.ValToString();
+                settings.ValExcludeValueDelimiter = nps.XmlSortExcludeValueDelimiter.ValToString();
 
                 if (DialogResult.OK == settings.ShowDialog())
                 {
-                    NppSettings.AutodetectMinLinesToRead.Value = settings.ValMinLinesToRead;
-                    NppSettings.AutodetectMaxLinesToRead.Value = settings.ValMaxLinesToRead;
-                    NppSettings.AutodetectMinWhitespaceLines.Value = settings.ValMinWhitespaceLines;
-                    NppSettings.AutodetectMaxCharsToReadPerLine.Value = settings.ValMaxCharsPerLine;
-                    NppSettings.SizeDetectThreshold.Value = settings.ValSizeDetectThreshold;
-                    NppSettings.XmlSortExcludeAttributeValues.Value = settings.ValExcludeAttributeValues;
-                    NppSettings.XmlSortExcludeValueDelimiter.Value = settings.ValExcludeValueDelimiter;
+                    nps.AutodetectMinLinesToRead.Value = settings.ValMinLinesToRead;
+                    nps.AutodetectMaxLinesToRead.Value = settings.ValMaxLinesToRead;
+                    nps.AutodetectMinWhitespaceLines.Value = settings.ValMinWhitespaceLines;
+                    nps.AutodetectMaxCharsToReadPerLine.Value = settings.ValMaxCharsPerLine;
+                    nps.SizeDetectThreshold.Value = settings.ValSizeDetectThreshold;
+                    nps.XmlSortExcludeAttributeValues.Value = settings.ValExcludeAttributeValues;
+                    nps.XmlSortExcludeValueDelimiter.Value = settings.ValExcludeValueDelimiter;
 
-                    NppSettings.ApplySettings();
-                    NppSettings.WriteSettings();
+                    nps.ApplySettings();
+                    nps.WriteSettings();
                 }
             }
         }

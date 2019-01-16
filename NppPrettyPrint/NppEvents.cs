@@ -3,11 +3,20 @@ using System;
 
 namespace NppPrettyPrint
 {
-    static class NppEvents
+    internal class NppEvents
     {
-        internal static void OnPluginReady()
+        internal readonly NppSettings nps;
+        internal readonly NppCommands npc;
+
+        internal NppEvents(NppSettings s, NppCommands c)
         {
-            NppSettings.CurScintilla = PluginBase.GetCurrentScintilla();
+            nps = s;
+            npc = c;
+        }
+
+        internal void OnPluginReady()
+        {
+            nps.CurScintilla = PluginBase.GetCurrentScintilla();
 
             // menu modifications
             //IntPtr submenu = Win32Extensions.CreatePopupMenu();
@@ -17,32 +26,32 @@ namespace NppPrettyPrint
             //Win32Extensions.AppendMenu(submenu, Win32Extensions.MenuFlags.MF_STRING, PluginBase._funcItems.Items[SubmenuItem]._cmdID, "Sub menu item2");
         }
 
-        internal static void OnBeforeOpen(IntPtr id)
+        internal void OnBeforeOpen(IntPtr id)
         {
-            if (NppCommands.IsLargeFile(id))
-                NppCommands.SetBufferLangType(id, (int)LangType.L_TEXT);
+            if (npc.IsLargeFile(id))
+                npc.SetBufferLangType(id, (int)LangType.L_TEXT);
         }
 
-        internal static void OnBufferActivated(IntPtr id)
+        internal void OnBufferActivated(IntPtr id)
         {
-            NppSettings.CurScintilla = PluginBase.GetCurrentScintilla();
-            NppCommands.GuessIndentation(id);
+            nps.CurScintilla = PluginBase.GetCurrentScintilla();
+            npc.GuessIndentation(id);
         }
 
-        internal static void OnFileSaved(IntPtr id)
+        internal void OnFileSaved(IntPtr id)
         {
-            NppCommands.FileSaved(id);
+            npc.FileSaved(id);
         }
 
-        internal static void OnFileClosed(IntPtr id)
+        internal void OnFileClosed(IntPtr id)
         {
-            NppCommands.RemoveFileFromCache(id);
+            npc.RemoveFileFromCache(id);
         }
 
-        internal static void OnLangChanged(IntPtr id)
+        internal void OnLangChanged(IntPtr id)
         {
             if (Main.FileCache.ContainsKey(id))
-                NppCommands.SetUseTabs(Main.FileCache[id].UseTabs);
+                npc.SetUseTabs(Main.FileCache[id].UseTabs);
         }
     }
 }
